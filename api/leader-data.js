@@ -1,20 +1,39 @@
 // Vercel Serverless Function for Leader Data Retrieval
+// Multi-approach storage: Global + File backup
 import fs from 'fs';
-import path from 'path';
 
-// Use /tmp directory for temporary file storage (works in Vercel)
+// Global storage (works within same instance)
+if (!global.leaderStore) {
+  global.leaderStore = new Map();
+}
+
+// File backup
 const DATA_FILE = '/tmp/leader-data.json';
 
-// Helper function for file-based storage
-function loadLeaderData() {
+// Helper function
+function loadFromMultipleStorage() {
   try {
-    if (fs.existsSync(DATA_FILE)) {
-      const data = fs.readFileSync(DATA_FILE, 'utf8');
-      return JSON.parse(data);
+    // Try global memory first
+    let data = global.leaderStore.get('currentLeaderData');
+    if (data) {
+      console.log('📚 Data found in global memory');
+      return data;
     }
+    
+    // Try file backup
+    if (fs.existsSync(DATA_FILE)) {
+      console.log('📁 Data found in file, restoring to memory');
+      const fileData = fs.readFileSync(DATA_FILE, 'utf8');
+      data = JSON.parse(fileData);
+      // Restore to global memory
+      global.leaderStore.set('currentLeaderData', data);
+      return data;
+    }
+    
+    console.log('❌ No data found in any storage');
     return null;
   } catch (error) {
-    console.error('❌ Error loading leader data:', error);
+    console.error('❌ Error in multi-storage load:', error);
     return null;
   }
 }
@@ -38,13 +57,15 @@ export default async function handler(req, res) {
 
   if (req.method === 'GET') {
     try {
-      // Load data from file
-      const currentData = loadLeaderData();
+      // Load data using multi-storage approach
+      const currentData = loadFromMultipleStorage();
       
-      console.log('🔍 DEBUG - File-based storage state:', {
+      console.log('🔍 DEBUG - Multi-storage state:', {
+        hasGlobalData: global.leaderStore.has('currentLeaderData'),
+        globalMapSize: global.leaderStore.size,
         fileExists: fs.existsSync(DATA_FILE),
         hasData: !!currentData,
-        rawCurrentData: currentData
+        dataTimestamp: currentData?.storeTimestamp
       });
 
       // Prepare response
@@ -67,6 +88,7 @@ export default async function handler(req, res) {
         hasLeader: responseData.hasLeader,
         leadersCount: Object.keys(responseData.leaders || {}).length,
         lastUpdate: responseData.lastUpdate,
+        globalMapSize: global.leaderStore.size,
         fileExists: fs.existsSync(DATA_FILE)
       });
 

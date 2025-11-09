@@ -1,30 +1,53 @@
 // Vercel Serverless Function for Leader Position Updates
+// Multi-approach storage: Global + File backup + Response data
 import fs from 'fs';
-import path from 'path';
 
-// Use /tmp directory for temporary file storage (works in Vercel)
+// Global storage (works within same instance)
+if (!global.leaderStore) {
+  global.leaderStore = new Map();
+}
+
+// File backup (attempt persistence)
 const DATA_FILE = '/tmp/leader-data.json';
 
-// Helper functions for file-based storage
-function saveLeaderData(data) {
+// Helper functions
+function saveToMultipleStorage(data) {
   try {
-    fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+    // Store in global memory
+    global.leaderStore.set('currentLeaderData', data);
+    
+    // Attempt file backup
+    try {
+      fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+    } catch (fileError) {
+      console.log('📝 File storage failed (expected in Vercel):', fileError.message);
+    }
+    
     return true;
   } catch (error) {
-    console.error('❌ Error saving leader data:', error);
+    console.error('❌ Error in multi-storage save:', error);
     return false;
   }
 }
 
-function loadLeaderData() {
+function loadFromMultipleStorage() {
   try {
+    // Try global memory first
+    let data = global.leaderStore.get('currentLeaderData');
+    if (data) return data;
+    
+    // Try file backup
     if (fs.existsSync(DATA_FILE)) {
-      const data = fs.readFileSync(DATA_FILE, 'utf8');
-      return JSON.parse(data);
+      const fileData = fs.readFileSync(DATA_FILE, 'utf8');
+      data = JSON.parse(fileData);
+      // Restore to global memory
+      global.leaderStore.set('currentLeaderData', data);
+      return data;
     }
+    
     return null;
   } catch (error) {
-    console.error('❌ Error loading leader data:', error);
+    console.error('❌ Error in multi-storage load:', error);
     return null;
   }
 }
@@ -59,32 +82,35 @@ export default async function handler(req, res) {
         storeTimestamp: Date.now()
       };
 
-      // Save to file
-      const saved = saveLeaderData(dataToStore);
+      // Save using multi-storage approach
+      const saved = saveToMultipleStorage(dataToStore);
       
       if (!saved) {
         return res.status(500).json({ error: 'Failed to save leader data' });
       }
 
-      // Verify the save by reading it back
-      const verification = loadLeaderData();
+      // Verify the save
+      const verification = loadFromMultipleStorage();
       
-      console.log('✅ Stored leader data to file:', {
+      console.log('✅ Multi-storage save completed:', {
         hasLeader: verification?.hasLeader,
         leadersCount: Object.keys(verification?.leaders || {}).length,
         lastUpdate: verification?.lastUpdate,
+        globalMapSize: global.leaderStore.size,
         fileExists: fs.existsSync(DATA_FILE)
       });
 
+      // Return data in response for client fallback
       return res.status(200).json({ 
         success: true, 
         message: 'Leader position updated',
         activeLeaders: verification?.leaders ? Object.keys(verification.leaders).length : 0,
-        fileExists: fs.existsSync(DATA_FILE),
         stored: {
           hasLeader: verification?.hasLeader,
           leadersCount: Object.keys(verification?.leaders || {}).length
-        }
+        },
+        // Include the actual data for client-side caching
+        leaderData: verification
       });
 
     } catch (error) {
