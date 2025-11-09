@@ -1,6 +1,8 @@
 // Vercel Serverless Function for Leader Data Retrieval
-// Simple in-memory storage using Map (proven to work)
-const leaderStore = new Map();
+// Shared Map using global object (same approach as test-storage.js)
+if (!global.leaderStore) {
+  global.leaderStore = new Map();
+}
 
 export default async function handler(req, res) {
   console.log('📡 leader-data API called');
@@ -22,11 +24,11 @@ export default async function handler(req, res) {
   if (req.method === 'GET') {
     try {
       // Get data from the same Map the leader uses
-      const currentData = leaderStore.get('currentLeaderData');
+      const currentData = global.leaderStore.get('currentLeaderData');
       
       console.log('🔍 DEBUG - Map state:', {
-        mapSize: leaderStore.size,
-        hasCurrentData: leaderStore.has('currentLeaderData'),
+        mapSize: global.leaderStore.size,
+        hasCurrentData: global.leaderStore.has('currentLeaderData'),
         rawData: currentData
       });
 
@@ -50,7 +52,7 @@ export default async function handler(req, res) {
         hasLeader: responseData.hasLeader,
         leadersCount: Object.keys(responseData.leaders || {}).length,
         lastUpdate: responseData.lastUpdate,
-        mapSize: leaderStore.size
+        mapSize: global.leaderStore.size
       });
 
       return res.status(200).json(responseData);

@@ -1,6 +1,8 @@
 // Vercel Serverless Function for Leader Position Updates
-// Simple in-memory storage using Map (proven to work)
-const leaderStore = new Map();
+// Shared Map using global object (same approach as test-storage.js)
+if (!global.leaderStore) {
+  global.leaderStore = new Map();
+}
 
 export default async function handler(req, res) {
   console.log('📡 leader API called');
@@ -26,26 +28,26 @@ export default async function handler(req, res) {
       });
 
       // Store the entire leader data object
-      leaderStore.set('currentLeaderData', {
+      global.leaderStore.set('currentLeaderData', {
         ...leaderData,
         lastServerUpdate: Date.now(),
         storeTimestamp: Date.now()
       });
       
-      const stored = leaderStore.get('currentLeaderData');
+      const stored = global.leaderStore.get('currentLeaderData');
       
       console.log('✅ Stored leader data:', {
         hasLeader: stored.hasLeader,
         leadersCount: Object.keys(stored.leaders || {}).length,
         lastUpdate: stored.lastUpdate,
-        mapSize: leaderStore.size
+        mapSize: global.leaderStore.size
       });
 
       return res.status(200).json({ 
         success: true, 
         message: 'Leader position updated',
         activeLeaders: stored.leaders ? Object.keys(stored.leaders).length : 0,
-        mapSize: leaderStore.size,
+        mapSize: global.leaderStore.size,
         stored: {
           hasLeader: stored.hasLeader,
           leadersCount: Object.keys(stored.leaders || {}).length
