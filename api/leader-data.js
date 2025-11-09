@@ -26,10 +26,19 @@ export default async function handler(req, res) {
       // Get data from the same Map the leader uses
       const currentData = global.leaderStore.get('currentLeaderData');
       
-      console.log('🔍 DEBUG - Map state:', {
+      // Debug all Map contents
+      const allMapKeys = Array.from(global.leaderStore.keys());
+      const allMapData = {};
+      for (const key of allMapKeys) {
+        allMapData[key] = global.leaderStore.get(key);
+      }
+      
+      console.log('🔍 DEBUG - Complete Map state:', {
         mapSize: global.leaderStore.size,
+        allKeys: allMapKeys,
         hasCurrentData: global.leaderStore.has('currentLeaderData'),
-        rawData: currentData
+        allMapData: allMapData,
+        rawCurrentData: currentData
       });
 
       // Prepare response
