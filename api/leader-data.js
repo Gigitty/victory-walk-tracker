@@ -1,7 +1,5 @@
 // Vercel Serverless Function for Leader Data Retrieval
-// External storage approach using JSONBin.io
-import { storage } from './external-storage.js';
-
+// Ultra-simple approach - read from static JSON file
 export default async function handler(req, res) {
   console.log('📡 leader-data API called');
   
@@ -20,52 +18,41 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'GET') {
-    try {
-      // Load data using simplified storage
-      const currentData = await storage.loadData();
-      
-      console.log('🔍 DEBUG - Storage state:', {
-        hasData: !!currentData,
-        hasLeader: currentData?.hasLeader,
-        leadersCount: Object.keys(currentData?.leaders || {}).length,
-        dataAge: currentData?.savedAt ? Date.now() - currentData.savedAt : 'unknown'
-      });
-
-      // Prepare response
-      const responseData = currentData || {
-        hasLeader: false,
-        leaders: {},
-        leaderPosition: null,
-        currentStopIndex: 0,
-        leaderStopIndex: 0,
-        lastUpdate: Date.now(),
-        timestamp: Date.now(),
-        serverTime: new Date().toISOString()
-      };
-
-      console.log('📡 Serving leader data:', {
-        hasLeader: responseData.hasLeader,
-        leadersCount: Object.keys(responseData.leaders || {}).length,
-        lastUpdate: responseData.lastUpdate
-      });
-
-      return res.status(200).json(responseData);
-
-    } catch (error) {
-      console.error('❌ Error in leader-data handler:', error);
-      
-      // Return safe fallback
-      const fallbackData = {
-        hasLeader: false,
-        leaders: {},
-        lastUpdate: Date.now(),
-        timestamp: Date.now(),
-        serverTime: new Date().toISOString(),
-        error: error.message
-      };
-      
-      return res.status(200).json(fallbackData);
-    }
+    // HARD-CODED TEST DATA - Let's see if this works first!
+    const testData = {
+      hasLeader: true,
+      leaders: {
+        A: {
+          position: {
+            lat: 40.7128,
+            lng: -74.0060,
+            leaderType: 'A',
+            timestamp: Date.now()
+          },
+          stopIndex: 0,
+          lastUpdate: Date.now()
+        }
+      },
+      leaderPosition: {
+        lat: 40.7128,
+        lng: -74.0060,
+        leaderType: 'A',
+        timestamp: Date.now()
+      },
+      currentStopIndex: 0,
+      leaderStopIndex: 0,
+      lastUpdate: Date.now(),
+      timestamp: Date.now(),
+      serverTime: new Date().toISOString(),
+      source: 'hard-coded-test'
+    };
+    
+    console.log('📡 Serving HARD-CODED test data:', {
+      hasLeader: testData.hasLeader,
+      leadersCount: Object.keys(testData.leaders).length
+    });
+    
+    return res.status(200).json(testData);
   }
 
   return res.status(405).json({ error: 'Method not allowed' });

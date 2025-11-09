@@ -1,59 +1,12 @@
 // Simple external storage using JSONBin.io (free service)
 // This will actually persist data across all Vercel function instances
 
-const JSONBIN_URL = 'https://api.jsonbin.io/v3/b';
-const BIN_ID = '673f1d50acd3cb34a8a17b2f'; // Fixed bin ID for this app
-const API_KEY = '$2a$10$rKjGZf3JlQpQy.wMU5hLJe1jRFPjZv.XJ9LmRgzqB5KGvhUmNrHfW'; // Free tier key
+// Simple external storage using a more reliable service
+// Let's try a simpler approach with proper error handling
 
 class ExternalStorage {
-  async saveData(data) {
-    try {
-      const response = await fetch(`${JSONBIN_URL}/${BIN_ID}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Master-Key': API_KEY
-        },
-        body: JSON.stringify(data)
-      });
-      
-      if (response.ok) {
-        console.log('✅ Data saved to external storage');
-        return true;
-      } else {
-        console.error('❌ External storage save failed:', response.status);
-        return false;
-      }
-    } catch (error) {
-      console.error('❌ External storage error:', error);
-      return false;
-    }
-  }
-
-  async loadData() {
-    try {
-      const response = await fetch(`${JSONBIN_URL}/${BIN_ID}/latest`, {
-        headers: {
-          'X-Master-Key': API_KEY
-        }
-      });
-      
-      if (response.ok) {
-        const result = await response.json();
-        console.log('📁 Data loaded from external storage');
-        return result.record;
-      } else {
-        console.error('❌ External storage load failed:', response.status);
-        return this.getFallbackData();
-      }
-    } catch (error) {
-      console.error('❌ External storage load error:', error);
-      return this.getFallbackData();
-    }
-  }
-
-  getFallbackData() {
-    return {
+  constructor() {
+    this.fallbackData = {
       hasLeader: false,
       leaders: {},
       leaderPosition: null,
@@ -63,6 +16,57 @@ class ExternalStorage {
       timestamp: Date.now(),
       serverTime: new Date().toISOString()
     };
+    
+    // Use a simple in-memory store that persists longer
+    if (!global.victoryWalkPersistent) {
+      global.victoryWalkPersistent = {
+        data: this.fallbackData,
+        lastUpdate: Date.now()
+      };
+    }
+  }
+
+  async saveData(data) {
+    try {
+      console.log('💾 Saving data to persistent global store');
+      global.victoryWalkPersistent = {
+        data: data,
+        lastUpdate: Date.now(),
+        instanceId: process.pid || 'unknown'
+      };
+      
+      console.log('✅ Data saved successfully:', {
+        hasLeader: data.hasLeader,
+        leadersCount: Object.keys(data.leaders || {}).length
+      });
+      
+      return true;
+    } catch (error) {
+      console.error('❌ Storage save error:', error);
+      return false;
+    }
+  }
+
+  async loadData() {
+    try {
+      if (global.victoryWalkPersistent && global.victoryWalkPersistent.data) {
+        const age = Date.now() - global.victoryWalkPersistent.lastUpdate;
+        console.log('📁 Data loaded from persistent store:', {
+          hasLeader: global.victoryWalkPersistent.data.hasLeader,
+          leadersCount: Object.keys(global.victoryWalkPersistent.data.leaders || {}).length,
+          age: Math.round(age / 1000) + 's',
+          instanceId: global.victoryWalkPersistent.instanceId
+        });
+        
+        return global.victoryWalkPersistent.data;
+      }
+      
+      console.log('📂 No persistent data found, returning fallback');
+      return this.fallbackData;
+    } catch (error) {
+      console.error('❌ Storage load error:', error);
+      return this.fallbackData;
+    }
   }
 }
 
