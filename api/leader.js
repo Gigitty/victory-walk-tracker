@@ -74,11 +74,18 @@ export default async function handler(req, res) {
         lat: leaderData.leaderPosition?.lat,
         lng: leaderData.leaderPosition?.lng,
         leaderType: leaderData.leaderPosition?.leaderType,
-        hasMultipleLeaders: !!leaderData.leaders
+        hasMultipleLeaders: !!leaderData.leaders,
+        fullLeaderData: leaderData
       });
 
       // Read existing data and merge
       const existingData = await readLeaderData();
+      
+      console.log('📦 Existing data before merge:', {
+        hasLeader: existingData.hasLeader,
+        leadersCount: Object.keys(existingData.leaders || {}).length,
+        lastUpdate: existingData.lastUpdate
+      });
       
       const updatedData = {
         ...existingData,
@@ -95,6 +102,7 @@ export default async function handler(req, res) {
         // Merge the new leader data
         for (const [leaderType, leaderInfo] of Object.entries(leaderData.leaders)) {
           updatedData.leaders[leaderType] = leaderInfo;
+          console.log(`💾 Storing leader ${leaderType}:`, leaderInfo);
         }
         
         updatedData.hasLeader = true;
@@ -103,6 +111,13 @@ export default async function handler(req, res) {
 
       // Save the updated data
       await writeLeaderData(updatedData);
+      
+      console.log('✅ Final stored data:', {
+        hasLeader: updatedData.hasLeader,
+        leadersCount: Object.keys(updatedData.leaders || {}).length,
+        lastUpdate: updatedData.lastUpdate,
+        leaders: updatedData.leaders
+      });
 
       return res.status(200).json({ 
         success: true, 

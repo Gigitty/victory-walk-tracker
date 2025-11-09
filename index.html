@@ -2264,6 +2264,13 @@
                     lastUpdate: Date.now()
                 };
                 
+                console.log('📤 Broadcasting leader data:', {
+                    currentLeaderType: this.currentLeaderType,
+                    hasLeader: leaderData.hasLeader,
+                    leadersCount: Object.keys(leaderData.leaders).length,
+                    fullData: leaderData
+                });
+                
                 try {
                     // Send to server via HTTP POST
                     const response = await fetch('/api/leader', {
@@ -2275,7 +2282,7 @@
                     });
                     
                     if (response.ok) {
-                        console.log(`📡 Leader position broadcasted (moved ${(distanceMoved * 1000).toFixed(1)}m):`, leaderPosition);
+                        console.log(`📡 Leader position broadcasted successfully (moved ${(distanceMoved * 1000).toFixed(1)}m):`, leaderPosition);
                     } else {
                         console.warn('Failed to broadcast leader position:', response.status);
                     }
