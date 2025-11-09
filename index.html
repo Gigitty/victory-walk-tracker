@@ -977,7 +977,7 @@
                 this.lastBroadcastTime = 0;
                 this.broadcastThrottle = 5000; // Only broadcast every 5 seconds (reduced server load)
                 this.lastBroadcastPosition = null;
-                this.minDistanceThreshold = 0.005; // Only broadcast if moved 5+ meters (in km)
+                this.minDistanceThreshold = 0.0001; // TESTING: Reduced to ~10cm for testing (was 5m)
                 
                 this.init();
             }
@@ -2235,9 +2235,16 @@
                 }
                 
                 // Only broadcast if enough time passed AND leader moved significantly (or first broadcast)
-                if (!timePassed && this.lastBroadcastPosition && distanceMoved < this.minDistanceThreshold) {
+                const isFirstBroadcast = !this.lastBroadcastPosition;
+                if (!timePassed && !isFirstBroadcast && distanceMoved < this.minDistanceThreshold) {
                     console.log(`⏱️ Skipping broadcast - insufficient movement (${(distanceMoved * 1000).toFixed(1)}m)`);
                     return;
+                }
+                
+                if (isFirstBroadcast) {
+                    console.log(`🎯 First broadcast - bypassing movement threshold`);
+                } else {
+                    console.log(`✅ Broadcasting - moved ${(distanceMoved * 1000).toFixed(1)}m`);
                 }
                 
                 this.lastBroadcastTime = now;
