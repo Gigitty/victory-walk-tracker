@@ -1096,27 +1096,8 @@
                         }
                     }
                 } catch (error) {
-                    console.warn('Could not fetch leader data:', error);
-                    
-                    // Fallback: Try XMLHttpRequest for better error details
-                    try {
-                        const xhr = new XMLHttpRequest();
-                        xhr.open('GET', `/leader-data.json?t=${Date.now()}`, true);
-                        xhr.onload = () => {
-                            if (xhr.status === 200) {
-                                const leaderData = JSON.parse(xhr.responseText);
-                                if (leaderData.hasLeader && leaderData.leaderPosition) {
-                                    if (leaderData.lastUpdate > (this.lastLeaderUpdate || 0)) {
-                                        this.updateRemoteLeaderPosition(leaderData.leaderPosition, leaderData);
-                                        this.lastLeaderUpdate = leaderData.lastUpdate;
-                                    }
-                                }
-                            }
-                        };
-                        xhr.send();
-                    } catch (fallbackError) {
-                        console.warn('Fallback also failed:', fallbackError);
-                    }
+                    console.warn('Could not fetch leader data from API:', error);
+                    // No fallback needed - API endpoint should work
                 }
             }
 
