@@ -1,6 +1,56 @@
 // Vercel Serverless Function for Leader Position Updates
-// Simplified storage approach
-import { storage } from './storage.js';
+// Multi-approach storage: Global + File backup + Response data
+import fs from 'fs';
+
+// Global storage (works within same instance)
+if (!global.leaderStore) {
+  global.leaderStore = new Map();
+}
+
+// File backup (attempt persistence)
+const DATA_FILE = '/tmp/leader-data.json';
+
+// Helper functions
+function saveToMultipleStorage(data) {
+  try {
+    // Store in global memory
+    global.leaderStore.set('currentLeaderData', data);
+    
+    // Attempt file backup
+    try {
+      fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+    } catch (fileError) {
+      console.log('📝 File storage failed (expected in Vercel):', fileError.message);
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('❌ Error in multi-storage save:', error);
+    return false;
+  }
+}
+
+function loadFromMultipleStorage() {
+  try {
+    // Try global memory first
+    let data = global.leaderStore.get('currentLeaderData');
+    if (data) return data;
+    
+    // Try file backup
+    if (fs.existsSync(DATA_FILE)) {
+      const fileData = fs.readFileSync(DATA_FILE, 'utf8');
+      data = JSON.parse(fileData);
+      // Restore to global memory
+      global.leaderStore.set('currentLeaderData', data);
+      return data;
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('❌ Error in multi-storage load:', error);
+    return null;
+  }
+}
 
 export default async function handler(req, res) {
   console.log('📡 leader API called');
@@ -29,25 +79,25 @@ export default async function handler(req, res) {
       const dataToStore = {
         ...leaderData,
         lastServerUpdate: Date.now(),
-        storeTimestamp: Date.now(),
-        timestamp: Date.now(),
-        serverTime: new Date().toISOString()
+        storeTimestamp: Date.now()
       };
 
-      // Save using simplified storage
-      const saved = await storage.saveData(dataToStore);
+      // Save using multi-storage approach
+      const saved = saveToMultipleStorage(dataToStore);
       
       if (!saved) {
         return res.status(500).json({ error: 'Failed to save leader data' });
       }
 
       // Verify the save
-      const verification = await storage.loadData();
+      const verification = loadFromMultipleStorage();
       
-      console.log('✅ Storage save completed:', {
+      console.log('✅ Multi-storage save completed:', {
         hasLeader: verification?.hasLeader,
         leadersCount: Object.keys(verification?.leaders || {}).length,
-        lastUpdate: verification?.lastUpdate
+        lastUpdate: verification?.lastUpdate,
+        globalMapSize: global.leaderStore.size,
+        fileExists: fs.existsSync(DATA_FILE)
       });
 
       // Return data in response for client fallback
@@ -67,7 +117,7 @@ export default async function handler(req, res) {
       console.error('❌ Error handling leader update:', error);
       return res.status(500).json({ 
         error: 'Internal server error', 
-        details: error.message 
+        message: error.message 
       });
     }
   }

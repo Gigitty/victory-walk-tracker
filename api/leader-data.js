@@ -1,42 +1,6 @@
 // Vercel Serverless Function for Leader Data Retrieval
-// Multi-approach storage: Global + File backup
-import fs from 'fs';
-
-// Global storage (works within same instance)
-if (!global.leaderStore) {
-  global.leaderStore = new Map();
-}
-
-// File backup
-const DATA_FILE = '/tmp/leader-data.json';
-
-// Helper function
-function loadFromMultipleStorage() {
-  try {
-    // Try global memory first
-    let data = global.leaderStore.get('currentLeaderData');
-    if (data) {
-      console.log('📚 Data found in global memory');
-      return data;
-    }
-    
-    // Try file backup
-    if (fs.existsSync(DATA_FILE)) {
-      console.log('📁 Data found in file, restoring to memory');
-      const fileData = fs.readFileSync(DATA_FILE, 'utf8');
-      data = JSON.parse(fileData);
-      // Restore to global memory
-      global.leaderStore.set('currentLeaderData', data);
-      return data;
-    }
-    
-    console.log('❌ No data found in any storage');
-    return null;
-  } catch (error) {
-    console.error('❌ Error in multi-storage load:', error);
-    return null;
-  }
-}
+// Simplified storage approach
+import { storage } from './storage.js';
 
 export default async function handler(req, res) {
   console.log('📡 leader-data API called');
@@ -57,41 +21,18 @@ export default async function handler(req, res) {
 
   if (req.method === 'GET') {
     try {
-      // Load data using multi-storage approach
-      const currentData = loadFromMultipleStorage();
+      // Load data using simplified storage
+      const currentData = await storage.loadData();
       
-      console.log('🔍 DEBUG - Multi-storage state:', {
-        hasGlobalData: global.leaderStore.has('currentLeaderData'),
-        globalMapSize: global.leaderStore.size,
-        fileExists: fs.existsSync(DATA_FILE),
+      console.log('🔍 DEBUG - Storage state:', {
         hasData: !!currentData,
-        dataTimestamp: currentData?.storeTimestamp
+        hasLeader: currentData?.hasLeader,
+        leadersCount: Object.keys(currentData?.leaders || {}).length,
+        dataAge: currentData?.savedAt ? Date.now() - currentData.savedAt : 'unknown'
       });
-      
-      // Log all global Map contents for debugging
-      console.log('🗂️ Global Map contents:', Array.from(global.leaderStore.entries()));
-      
-      // If no data, add a test entry to verify the GET endpoint works
-      if (!currentData) {
-        console.log('💡 No data found - creating test data for debugging');
-        const testData = {
-          hasLeader: true,
-          leaders: { TEST: { position: { lat: 1, lng: 1, leaderType: 'TEST' }, lastUpdate: Date.now() } },
-          leaderPosition: { lat: 1, lng: 1, leaderType: 'TEST' },
-          lastUpdate: Date.now(),
-          storeTimestamp: Date.now(),
-          note: 'Test data created by GET endpoint'
-        };
-        global.leaderStore.set('currentLeaderData', testData);
-        console.log('🧪 Test data created in global Map');
-      }
 
       // Prepare response
-      const responseData = currentData ? {
-        ...currentData,
-        timestamp: Date.now(),
-        serverTime: new Date().toISOString()
-      } : {
+      const responseData = currentData || {
         hasLeader: false,
         leaders: {},
         leaderPosition: null,
@@ -105,9 +46,7 @@ export default async function handler(req, res) {
       console.log('📡 Serving leader data:', {
         hasLeader: responseData.hasLeader,
         leadersCount: Object.keys(responseData.leaders || {}).length,
-        lastUpdate: responseData.lastUpdate,
-        globalMapSize: global.leaderStore.size,
-        fileExists: fs.existsSync(DATA_FILE)
+        lastUpdate: responseData.lastUpdate
       });
 
       return res.status(200).json(responseData);
