@@ -67,6 +67,24 @@ export default async function handler(req, res) {
         hasData: !!currentData,
         dataTimestamp: currentData?.storeTimestamp
       });
+      
+      // Log all global Map contents for debugging
+      console.log('🗂️ Global Map contents:', Array.from(global.leaderStore.entries()));
+      
+      // If no data, add a test entry to verify the GET endpoint works
+      if (!currentData) {
+        console.log('💡 No data found - creating test data for debugging');
+        const testData = {
+          hasLeader: true,
+          leaders: { TEST: { position: { lat: 1, lng: 1, leaderType: 'TEST' }, lastUpdate: Date.now() } },
+          leaderPosition: { lat: 1, lng: 1, leaderType: 'TEST' },
+          lastUpdate: Date.now(),
+          storeTimestamp: Date.now(),
+          note: 'Test data created by GET endpoint'
+        };
+        global.leaderStore.set('currentLeaderData', testData);
+        console.log('🧪 Test data created in global Map');
+      }
 
       // Prepare response
       const responseData = currentData ? {
