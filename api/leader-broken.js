@@ -1,22 +1,44 @@
 // Vercel Serverless Function for Leader Position Updates
-// Simple in-memory storage with timestamp validation
+// Replaces the /api/leader endpoint from secure_server.py
 
-// Global in-memory storage that persists for the function lifetime
-global.leaderDataCache = global.leaderDataCache || {
-  data: {
-    hasLeader: false,
-    leaders: {},
-    leaderPosition: null,
-    currentStopIndex: 0,
-    leaderStopIndex: 0,
-    lastUpdate: 0
-  },
-  timestamp: 0
-};
+import { promises as fs } from 'fs';
+
+// Use Vercel's /tmp directory with a simple filename
+const DATA_FILE = '/tmp/leader-data.json';
+
+async function getLeaderData() {
+  try {
+    const data = await fs.readFile(DATA_FILE, 'utf8');
+    const parsed = JSON.parse(data);
+    console.log('📁 Successfully read existing leader data from /tmp file');
+    return parsed;
+  } catch (error) {
+    console.log('⚠️ File read failed, creating default data:', error.message);
+    // File doesn't exist or is invalid, return default
+    const defaultData = {
+      hasLeader: false,
+      leaders: {},
+      leaderPosition: null,
+      currentStopIndex: 0,
+      leaderStopIndex: 0,
+      lastUpdate: Date.now()
+    };
+    return defaultData;
+  }
+}
+
+async function setLeaderData(data) {
+  try {
+    await fs.writeFile(DATA_FILE, JSON.stringify(data, null, 2));
+    console.log('💾 Successfully wrote leader data to /tmp file');
+    return true;
+  } catch (error) {
+    console.error('❌ Failed to write leader data to /tmp file:', error.message);
+    return false;
+  }
+}
 
 export default async function handler(req, res) {
-  console.log('📡 leader API called');
-  
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
@@ -34,11 +56,12 @@ export default async function handler(req, res) {
         lat: leaderData.leaderPosition?.lat,
         lng: leaderData.leaderPosition?.lng,
         leaderType: leaderData.leaderPosition?.leaderType,
-        hasMultipleLeaders: !!leaderData.leaders
+        hasMultipleLeaders: !!leaderData.leaders,
+        dataFile: DATA_FILE
       });
 
-      // Get existing data from global cache
-      const existingData = global.leaderDataCache.data;
+      // Read existing data and merge
+      const existingData = await getLeaderData();
       
       console.log('📦 Existing data before merge:', {
         hasLeader: existingData.hasLeader,
@@ -46,7 +69,6 @@ export default async function handler(req, res) {
         lastUpdate: existingData.lastUpdate
       });
       
-      // Merge with existing data
       const updatedData = {
         ...existingData,
         ...leaderData,
@@ -69,24 +91,21 @@ export default async function handler(req, res) {
         updatedData.lastUpdate = leaderData.lastUpdate || Date.now();
       }
 
-      // Update global cache
-      global.leaderDataCache = {
-        data: updatedData,
-        timestamp: Date.now()
-      };
+      // Save the updated data
+      const writeSuccess = await setLeaderData(updatedData);
       
-      console.log('✅ Updated global cache:', {
+      console.log('✅ Final stored data:', {
         hasLeader: updatedData.hasLeader,
         leadersCount: Object.keys(updatedData.leaders || {}).length,
         lastUpdate: updatedData.lastUpdate,
-        cacheTimestamp: global.leaderDataCache.timestamp
+        writeSuccess: writeSuccess
       });
 
       return res.status(200).json({ 
         success: true, 
         message: 'Leader position updated',
         activeLeaders: updatedData.leaders ? Object.keys(updatedData.leaders).length : 0,
-        cacheUpdated: true
+        writeSuccess: writeSuccess
       });
 
     } catch (error) {
@@ -98,5 +117,6 @@ export default async function handler(req, res) {
     }
   }
 
+  // Handle other methods
   return res.status(405).json({ error: 'Method not allowed' });
 }

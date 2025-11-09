@@ -1,33 +1,22 @@
 // Vercel Serverless Function for Leader Data Retrieval
-// Replaces the leader-data.json file access
+// Simple in-memory storage with timestamp validation
 
-import { promises as fs } from 'fs';
-
-// Use Vercel's /tmp directory with a simple filename
-const DATA_FILE = '/tmp/leader-data.json';
-
-async function getLeaderData() {
-  try {
-    const data = await fs.readFile(DATA_FILE, 'utf8');
-    const parsed = JSON.parse(data);
-    console.log('📁 Successfully read leader data from /tmp file');
-    return parsed;
-  } catch (error) {
-    console.log('⚠️ File read failed, using default data:', error.message);
-    // File doesn't exist or is invalid, return default
-    const defaultData = {
-      hasLeader: false,
-      leaders: {},
-      leaderPosition: null,
-      currentStopIndex: 0,
-      leaderStopIndex: 0,
-      lastUpdate: Date.now()
-    };
-    return defaultData;
-  }
-}
+// Global in-memory storage that persists for the function lifetime
+global.leaderDataCache = global.leaderDataCache || {
+  data: {
+    hasLeader: false,
+    leaders: {},
+    leaderPosition: null,
+    currentStopIndex: 0,
+    leaderStopIndex: 0,
+    lastUpdate: 0
+  },
+  timestamp: 0
+};
 
 export default async function handler(req, res) {
+  console.log('📡 leader-data API called');
+  
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
@@ -44,40 +33,41 @@ export default async function handler(req, res) {
 
   if (req.method === 'GET') {
     try {
-      // Read current leader data from file storage
-      const currentData = await getLeaderData();
+      // Get current data from global cache
+      const currentData = global.leaderDataCache.data;
+      const cacheAge = Date.now() - global.leaderDataCache.timestamp;
 
       // Add cache busting timestamp
       const responseData = {
         ...currentData,
         timestamp: Date.now(),
-        serverTime: new Date().toISOString()
+        serverTime: new Date().toISOString(),
+        cacheAge: cacheAge
       };
 
-      console.log('📡 Serving leader data:', {
+      console.log('📡 Serving leader data from cache:', {
         hasLeader: responseData.hasLeader,
         leadersCount: Object.keys(responseData.leaders || {}).length,
         lastUpdate: responseData.lastUpdate,
-        dataFile: DATA_FILE
+        cacheAge: cacheAge
       });
 
       return res.status(200).json(responseData);
 
     } catch (error) {
-      console.error('❌ Error retrieving leader data:', error);
+      console.error('❌ Error in leader-data handler:', error);
       
-      // Return a safe fallback response
+      // Return safe fallback
       const fallbackData = {
-        error: 'Internal server error', 
-        message: error.message,
         hasLeader: false,
         leaders: {},
         lastUpdate: Date.now(),
         timestamp: Date.now(),
-        serverTime: new Date().toISOString()
+        serverTime: new Date().toISOString(),
+        error: error.message
       };
       
-      return res.status(200).json(fallbackData); // Return 200 instead of 500 to avoid client errors
+      return res.status(200).json(fallbackData);
     }
   }
 
