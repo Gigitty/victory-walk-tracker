@@ -1,5 +1,5 @@
 // Vercel Serverless Function for Leader Data Retrieval
-// DISABLED - Return to localStorage-only approach
+// Simple global memory storage that works across requests
 export default async function handler(req, res) {
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -16,20 +16,50 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'GET') {
-    // Return empty data - localStorage will handle the real sync
-    const fallbackData = {
-      hasLeader: false,
-      leaders: {},
-      leaderPosition: null,
-      currentStopIndex: 0,
-      leaderStopIndex: 0,
-      lastUpdate: Date.now(),
-      timestamp: Date.now(),
-      serverTime: new Date().toISOString(),
-      source: 'disabled-api'
-    };
-    
-    return res.status(200).json(fallbackData);
+    try {
+      // Access the same global data that POST stores
+      const leaderData = global.leaderData || {
+        hasLeader: false,
+        leaders: {},
+        leaderPosition: null,
+        currentStopIndex: 0,
+        leaderStopIndex: 0,
+        lastUpdate: Date.now(),
+        timestamp: Date.now(),
+        serverTime: new Date().toISOString()
+      };
+      
+      console.log('📡 Serving leader data:', {
+        hasLeader: leaderData.hasLeader,
+        leadersCount: Object.keys(leaderData.leaders || {}).length,
+        lastUpdate: leaderData.lastUpdate
+      });
+
+      // Return current data with fresh timestamp
+      return res.status(200).json({
+        ...leaderData,
+        timestamp: Date.now(),
+        serverTime: new Date().toISOString()
+      });
+
+    } catch (error) {
+      console.error('❌ Error in leader-data handler:', error);
+      
+      // Return safe fallback
+      const fallbackData = {
+        hasLeader: false,
+        leaders: {},
+        leaderPosition: null,
+        currentStopIndex: 0,
+        leaderStopIndex: 0,
+        lastUpdate: Date.now(),
+        timestamp: Date.now(),
+        serverTime: new Date().toISOString(),
+        error: error.message
+      };
+      
+      return res.status(200).json(fallbackData);
+    }
   }
 
   return res.status(405).json({ error: 'Method not allowed' });

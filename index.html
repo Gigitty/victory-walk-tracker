@@ -1035,7 +1035,7 @@
             }
 
             async checkForLeaderUpdatesHTTP() {
-                console.log('🔍 checkForLeaderUpdatesHTTP called - DISABLED, using localStorage only');
+                console.log('🔍 checkForLeaderUpdatesHTTP called - isLeaderMode:', this.isLeaderMode);
                 
                 if (this.isLeaderMode) {
                     // Leaders should NOT poll for updates - they broadcast instead
@@ -1043,39 +1043,60 @@
                     return;
                 }
                 
-                console.log('📡 Checking localStorage for leader updates...');
+                console.log('📡 Follower checking for leader updates via API...');
                 
-                // Use localStorage instead of HTTP API
                 try {
-                    const storedLeaderData = localStorage.getItem('victoryWalkLeader');
-                    if (storedLeaderData) {
-                        const leaderPosition = JSON.parse(storedLeaderData);
-                        console.log('📱 Found leader data in localStorage:', leaderPosition);
-                        
-                        // Convert to expected format
-                        const leaderData = {
-                            hasLeader: true,
-                            leaderPosition: leaderPosition,
-                            leaders: {
-                                [leaderPosition.leaderType || 'A']: {
-                                    position: leaderPosition,
-                                    stopIndex: 0,
-                                    lastUpdate: leaderPosition.timestamp || Date.now()
-                                }
-                            },
-                            lastUpdate: leaderPosition.timestamp || Date.now()
-                        };
-                        
-                        if (leaderData.lastUpdate > (this.lastLeaderUpdate || 0)) {
-                            console.log('📡 Found newer leader data in localStorage');
-                            this.updateMultipleLeaders(leaderData);
-                            this.lastLeaderUpdate = leaderData.lastUpdate;
+                    const url = `/api/leader-data?t=${Date.now()}`;
+                    
+                    const response = await fetch(url, {
+                        method: 'GET',
+                        headers: {
+                            'Cache-Control': 'no-cache',
+                            'Pragma': 'no-cache'
+                        },
+                        cache: 'no-cache'
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    
+                    const leaderData = await response.json();
+                    
+                    console.log('� Follower polling result:', {
+                        hasLeader: leaderData.hasLeader,
+                        leadersCount: Object.keys(leaderData.leaders || {}).length,
+                        lastUpdate: leaderData.lastUpdate,
+                        serverTime: leaderData.serverTime
+                    });
+                    
+                    if (leaderData.hasLeader) {
+                        console.log('✅ Has leader data - processing...');
+                        // Check for new multi-leader structure
+                        if (leaderData.leaders) {
+                            console.log('✅ Multi-leader structure found');
+                            // Only update if this is newer data
+                            if (leaderData.lastUpdate > (this.lastLeaderUpdate || 0)) {
+                                console.log('📡 Follower received newer multi-leader data:', leaderData.leaders);
+                                this.updateMultipleLeaders(leaderData);
+                                this.lastLeaderUpdate = leaderData.lastUpdate;
+                            } else {
+                                console.log('📡 Follower data is not newer - skipping update');
+                            }
+                        } else if (leaderData.leaderPosition) {
+                            console.log('✅ Legacy leader structure found');
+                            // Legacy single leader support
+                            if (leaderData.lastUpdate > (this.lastLeaderUpdate || 0)) {
+                                console.log('📡 Follower received newer leader data:', leaderData.leaderPosition);
+                                this.updateRemoteLeaderPosition(leaderData.leaderPosition, leaderData);
+                                this.lastLeaderUpdate = leaderData.lastUpdate;
+                            }
                         }
                     } else {
-                        console.log('📱 No leader data found in localStorage');
+                        console.log('� No leader data available from server');
                     }
                 } catch (error) {
-                    console.warn('Error reading leader data from localStorage:', error);
+                    console.warn('Could not fetch leader data from API:', error);
                 }
             }
 
@@ -2242,11 +2263,21 @@
                 });
                 
                 try {
-                    // DISABLED: Send to server via HTTP POST - using localStorage only
-                    console.log('📡 Would broadcast to server (disabled) - using localStorage only');
+                    // Send to server via HTTP POST
+                    const response = await fetch('/api/leader', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(leaderData)
+                    });
                     
-                    // Just store in localStorage as before
-                    console.log(`📡 Leader broadcast - localStorage only`);
+                    if (response.ok) {
+                        const responseData = await response.json();
+                        console.log(`📡 Leader broadcast success - Active Leaders: ${responseData.activeLeaders}`);
+                    } else {
+                        console.warn('Failed to broadcast leader position:', response.status);
+                    }
                 } catch (error) {
                     console.warn('Error in localStorage leader storage:', error);
                 }
