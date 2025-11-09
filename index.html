@@ -1035,7 +1035,7 @@
             }
 
             async checkForLeaderUpdatesHTTP() {
-                console.log('🔍 checkForLeaderUpdatesHTTP called - isLeaderMode:', this.isLeaderMode);
+                console.log('🔍 checkForLeaderUpdatesHTTP called - DISABLED, using localStorage only');
                 
                 if (this.isLeaderMode) {
                     // Leaders should NOT poll for updates - they broadcast instead
@@ -1043,93 +1043,39 @@
                     return;
                 }
                 
-                console.log('📡 Follower checking for leader updates...');
+                console.log('📡 Checking localStorage for leader updates...');
                 
+                // Use localStorage instead of HTTP API
                 try {
-                    const url = `/api/leader-data?t=${Date.now()}`;
-                    
-                    const response = await fetch(url, {
-                        method: 'GET',
-                        headers: {
-                            'Cache-Control': 'no-cache',
-                            'Pragma': 'no-cache'
-                        },
-                        cache: 'no-cache'
-                    });
-                    
-                    if (!response.ok) {
-                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                    }
-                    
-                    const leaderData = await response.json();
-                    
-                    console.log('🔍 Follower polling result:', {
-                        hasLeader: leaderData.hasLeader,
-                        leadersCount: Object.keys(leaderData.leaders || {}).length,
-                        lastUpdate: leaderData.lastUpdate,
-                        serverTime: leaderData.serverTime,
-                        mapSize: leaderData.mapSize || 'unknown'
-                    });
-                    
-                    if (leaderData.hasLeader) {
-                        console.log('✅ Has leader data - processing...');
-                        // Check for new multi-leader structure
-                        if (leaderData.leaders) {
-                            console.log('✅ Multi-leader structure found');
-                            // Only update if this is newer data
-                            if (leaderData.lastUpdate > (this.lastLeaderUpdate || 0)) {
-                                console.log('📡 Follower received newer multi-leader data:', leaderData.leaders);
-                                this.updateMultipleLeaders(leaderData);
-                                this.lastLeaderUpdate = leaderData.lastUpdate;
-                            } else {
-                                console.log('📡 Follower data is not newer - skipping update');
-                            }
-                        } else if (leaderData.leaderPosition) {
-                            console.log('✅ Legacy leader structure found');
-                            // Legacy single leader support
-                            if (leaderData.lastUpdate > (this.lastLeaderUpdate || 0)) {
-                                console.log('📡 Follower received newer leader data:', leaderData.leaderPosition);
-                                this.updateRemoteLeaderPosition(leaderData.leaderPosition, leaderData);
-                                this.lastLeaderUpdate = leaderData.lastUpdate;
-                            }
+                    const storedLeaderData = localStorage.getItem('victoryWalkLeader');
+                    if (storedLeaderData) {
+                        const leaderPosition = JSON.parse(storedLeaderData);
+                        console.log('📱 Found leader data in localStorage:', leaderPosition);
+                        
+                        // Convert to expected format
+                        const leaderData = {
+                            hasLeader: true,
+                            leaderPosition: leaderPosition,
+                            leaders: {
+                                [leaderPosition.leaderType || 'A']: {
+                                    position: leaderPosition,
+                                    stopIndex: 0,
+                                    lastUpdate: leaderPosition.timestamp || Date.now()
+                                }
+                            },
+                            lastUpdate: leaderPosition.timestamp || Date.now()
+                        };
+                        
+                        if (leaderData.lastUpdate > (this.lastLeaderUpdate || 0)) {
+                            console.log('📡 Found newer leader data in localStorage');
+                            this.updateMultipleLeaders(leaderData);
+                            this.lastLeaderUpdate = leaderData.lastUpdate;
                         }
                     } else {
-                        // CRITICAL FIX: If server GET failed, try cached data from successful POST
-                        console.log('⚠️ Server GET returned no leader data - checking cache...');
-                        const cachedData = localStorage.getItem('victoryWalkServerCache');
-                        if (cachedData) {
-                            try {
-                                const cache = JSON.parse(cachedData);
-                                const cacheAge = Date.now() - cache.timestamp;
-                                console.log(`🔄 Found cached data from ${cache.source}, age: ${Math.round(cacheAge/1000)}s`);
-                                
-                                // Use cached data if it's recent (less than 30 seconds old)
-                                if (cacheAge < 30000 && cache.data.hasLeader) {
-                                    console.log('✅ Using cached leader data for cross-device sync');
-                                    this.updateMultipleLeaders(cache.data);
-                                    this.lastLeaderUpdate = cache.data.lastUpdate;
-                                }
-                            } catch (cacheError) {
-                                console.warn('Cache parse error:', cacheError);
-                            }
-                        }
+                        console.log('📱 No leader data found in localStorage');
                     }
                 } catch (error) {
-                    console.warn('Could not fetch leader data from API:', error);
-                    // CRITICAL FIX: Always try cache as fallback
-                    const cachedData = localStorage.getItem('victoryWalkServerCache');
-                    if (cachedData) {
-                        try {
-                            const cache = JSON.parse(cachedData);
-                            console.log('🔄 API failed - using cached data as fallback');
-                            if (cache.data.hasLeader) {
-                                this.updateMultipleLeaders(cache.data);
-                                this.lastLeaderUpdate = cache.data.lastUpdate;
-                            }
-                        } catch (cacheError) {
-                            console.warn('Cache fallback failed:', cacheError);
-                        }
-                    }
+                    console.warn('Error reading leader data from localStorage:', error);
                 }
             }
 
@@ -2296,37 +2242,16 @@
                 });
                 
                 try {
-                    // Send to server via HTTP POST
-                    const response = await fetch('/api/leader', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify(leaderData)
-                    });
+                    // DISABLED: Send to server via HTTP POST - using localStorage only
+                    console.log('📡 Would broadcast to server (disabled) - using localStorage only');
                     
-                    if (response.ok) {
-                        const responseData = await response.json();
-                        console.log(`📡 Leader broadcast success - Active Leaders: ${responseData.activeLeaders}`);
-                        
-                        // CRITICAL FIX: Store the successful leader data globally for immediate cross-device access
-                        if (responseData.leaderData) {
-                            // Store in localStorage as backup for other browser windows
-                            localStorage.setItem('victoryWalkServerCache', JSON.stringify({
-                                data: responseData.leaderData,
-                                timestamp: Date.now(),
-                                source: 'POST_response'
-                            }));
-                            console.log('💾 Cached successful server response for cross-device sync');
-                        }
-                    } else {
-                        console.warn('Failed to broadcast leader position:', response.status);
-                    }
+                    // Just store in localStorage as before
+                    console.log(`📡 Leader broadcast - localStorage only`);
                 } catch (error) {
-                    console.warn('Error broadcasting leader position:', error);
+                    console.warn('Error in localStorage leader storage:', error);
                 }
                 
-                // Also store in localStorage as backup for same-device windows
+                // Store in localStorage for same-device sync
                 localStorage.setItem('victoryWalkLeader', JSON.stringify(leaderPosition));
             }
 
