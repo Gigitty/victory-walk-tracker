@@ -12,16 +12,25 @@ function getLeaderData() {
   }
   
   console.log('🔄 No cached data found, creating default');
-  const defaultData = {
-    hasLeader: false,
-    leaders: {},
-    leaderPosition: null,
+  
+  // TEMPORARY TEST: Return test data to verify API is working
+  const testData = {
+    hasLeader: true,
+    leaders: {
+      'A': {
+        position: { lat: 40.7128, lng: -74.0060 },
+        stopIndex: 0,
+        lastUpdate: Date.now()
+      }
+    },
+    leaderPosition: { lat: 40.7128, lng: -74.0060 },
     currentStopIndex: 0,
     leaderStopIndex: 0,
     lastUpdate: Date.now()
   };
   
-  return defaultData;
+  console.log('🧪 TESTING: Returning test data to verify API works');
+  return testData;
 }
 
 export default async function handler(req, res) {
@@ -44,6 +53,13 @@ export default async function handler(req, res) {
       // Read current leader data from global storage
       const currentData = getLeaderData();
 
+      // Debug the global store state
+      console.log('🔍 Global store debug:', {
+        storeSize: global.leaderDataStore?.size || 0,
+        storeKeys: global.leaderDataStore ? Array.from(global.leaderDataStore.keys()) : [],
+        hasStoredData: global.leaderDataStore?.has('leaderData') || false
+      });
+
       // Add cache busting timestamp
       const responseData = {
         ...currentData,
@@ -55,7 +71,8 @@ export default async function handler(req, res) {
         hasLeader: responseData.hasLeader,
         leadersCount: Object.keys(responseData.leaders || {}).length,
         lastUpdate: responseData.lastUpdate,
-        cacheSource: 'global'
+        cacheSource: 'global',
+        fullData: responseData
       });
 
       return res.status(200).json(responseData);
