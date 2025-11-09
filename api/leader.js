@@ -1,11 +1,16 @@
 // Vercel Serverless Function for Leader Position Updates
-// Simple global memory storage that works across requests
-import { kv } from '@vercel/kv';
+// Stores leader state in Upstash Redis via the REST API. Falls back to
+// in-process global memory when Upstash credentials are not present or calls fail.
 
-// Key used in KV for the current leader state
-const KV_KEY = 'victory-walk:leader:current';
+// Upstash REST credentials are read from environment variables:
+// - UPSTASH_REST_URL
+// - UPSTASH_REST_TOKEN
 
-// Ensure a minimal global fallback if KV is not available
+const UPSTASH_REST_URL = process.env.UPSTASH_REST_URL;
+const UPSTASH_REST_TOKEN = process.env.UPSTASH_REST_TOKEN;
+const STORAGE_KEY = 'victory-walk:leader:current';
+
+// Ensure a minimal global fallback
 if (!global.leaderData) {
   global.leaderData = {
     hasLeader: false,
@@ -17,6 +22,24 @@ if (!global.leaderData) {
     timestamp: Date.now(),
     serverTime: new Date().toISOString()
   };
+}
+
+async function upstashSet(key, value) {
+  if (!UPSTASH_REST_URL || !UPSTASH_REST_TOKEN) throw new Error('Upstash credentials missing');
+  const url = `${UPSTASH_REST_URL.replace(/\/$/, '')}/set/${encodeURIComponent(key)}`;
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${UPSTASH_REST_TOKEN}`
+    },
+    body: JSON.stringify({ value })
+  });
+  if (!resp.ok) {
+    const text = await resp.text().catch(() => '');
+    throw new Error(`Upstash set failed: ${resp.status} ${resp.statusText} ${text}`);
+  }
+  return resp.json();
 }
 
 export default async function handler(req, res) {
@@ -44,18 +67,17 @@ export default async function handler(req, res) {
         timestamp: Date.now(),
         serverTime: new Date().toISOString()
       };
-
-      // Try KV first, fall back to global memory
-      let savedToKV = false;
+      // Try Upstash first, fall back to global memory
+      let storedInUpstash = false;
       try {
-        await kv.set(KV_KEY, dataToStore);
-        savedToKV = true;
-        console.log('✅ Leader data saved to Vercel KV');
-      } catch (kvError) {
-        console.warn('⚠️ Vercel KV unavailable, falling back to global memory:', kvError?.message || kvError);
+        await upstashSet(STORAGE_KEY, dataToStore);
+        storedInUpstash = true;
+        console.log('✅ Leader data saved to Upstash REST');
+      } catch (upError) {
+        console.warn('⚠️ Upstash unavailable, falling back to global memory:', upError?.message || upError);
       }
 
-      if (!savedToKV) {
+      if (!storedInUpstash) {
         global.leaderData = dataToStore;
         console.log('✅ Leader data stored in global memory fallback');
       }
@@ -64,7 +86,7 @@ export default async function handler(req, res) {
         success: true,
         message: 'Leader position updated',
         activeLeaders: dataToStore.leaders ? Object.keys(dataToStore.leaders).length : 0,
-        storedInKV: savedToKV
+        storedInUpstash
       });
     } catch (error) {
       console.error('❌ Error handling leader update:', error);

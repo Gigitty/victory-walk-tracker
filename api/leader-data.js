@@ -1,9 +1,26 @@
 // Vercel Serverless Function for Leader Data Retrieval
-// Simple global memory storage that works across requests
-import { kv } from '@vercel/kv';
+// Reads leader state from Upstash Redis via the REST API. Falls back to
+// in-process global memory when Upstash credentials are not present or calls fail.
 
-// Key used in KV for the current leader state
-const KV_KEY = 'victory-walk:leader:current';
+const UPSTASH_REST_URL = process.env.UPSTASH_REST_URL;
+const UPSTASH_REST_TOKEN = process.env.UPSTASH_REST_TOKEN;
+const STORAGE_KEY = 'victory-walk:leader:current';
+
+async function upstashGet(key) {
+  if (!UPSTASH_REST_URL || !UPSTASH_REST_TOKEN) throw new Error('Upstash credentials missing');
+  const url = `${UPSTASH_REST_URL.replace(/\/$/, '')}/get/${encodeURIComponent(key)}`;
+  const resp = await fetch(url, {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${UPSTASH_REST_TOKEN}`
+    }
+  });
+  if (!resp.ok) {
+    const text = await resp.text().catch(() => '');
+    throw new Error(`Upstash get failed: ${resp.status} ${resp.statusText} ${text}`);
+  }
+  return resp.json();
+}
 
 export default async function handler(req, res) {
   // Enable CORS
@@ -20,16 +37,20 @@ export default async function handler(req, res) {
 
   if (req.method === 'GET') {
     try {
-      // Try to read from KV first
+      // Try to read from Upstash first
       let leaderData = null;
       try {
-        leaderData = await kv.get(KV_KEY);
-        if (leaderData) console.log('📡 Leader data loaded from Vercel KV');
-      } catch (kvError) {
-        console.warn('⚠️ Vercel KV read failed, falling back to global memory:', kvError?.message || kvError);
+        const body = await upstashGet(STORAGE_KEY);
+        // Upstash GET typically returns { result: <value> }
+        if (body && typeof body === 'object' && 'result' in body) {
+          leaderData = body.result;
+          console.log('📡 Leader data loaded from Upstash REST');
+        }
+      } catch (upError) {
+        console.warn('⚠️ Upstash read failed, falling back to global memory:', upError?.message || upError);
       }
 
-      // Fallback to global memory if KV is unavailable or empty
+      // Fallback to global memory if Upstash is unavailable or empty
       if (!leaderData && global.leaderData) {
         leaderData = global.leaderData;
         console.log('📡 Leader data loaded from global memory fallback');
