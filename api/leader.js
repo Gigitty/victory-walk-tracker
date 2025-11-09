@@ -1,5 +1,11 @@
 // Vercel Serverless Function for Leader Position Updates
 // Simple global memory storage that works across requests
+import { kv } from '@vercel/kv';
+
+// Key used in KV for the current leader state
+const KV_KEY = 'victory-walk:leader:current';
+
+// Ensure a minimal global fallback if KV is not available
 if (!global.leaderData) {
   global.leaderData = {
     hasLeader: false,
@@ -19,14 +25,12 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
+  if (req.method === 'OPTIONS') return res.status(200).end();
 
   if (req.method === 'POST') {
     try {
       const receivedData = req.body;
-      
+
       console.log('📡 Leader position update received:', {
         lat: receivedData.leaderPosition?.lat,
         lng: receivedData.leaderPosition?.lng,
@@ -34,35 +38,37 @@ export default async function handler(req, res) {
         hasMultipleLeaders: !!receivedData.leaders
       });
 
-      // Store directly in global memory
-      global.leaderData = {
+      const dataToStore = {
         ...receivedData,
         lastServerUpdate: Date.now(),
         timestamp: Date.now(),
         serverTime: new Date().toISOString()
       };
-      
-      console.log('✅ Leader data stored globally:', {
-        hasLeader: global.leaderData.hasLeader,
-        leadersCount: Object.keys(global.leaderData.leaders || {}).length
-      });
 
-      return res.status(200).json({ 
-        success: true, 
-        message: 'Leader position updated successfully',
-        activeLeaders: global.leaderData.leaders ? Object.keys(global.leaderData.leaders).length : 0,
-        stored: {
-          hasLeader: global.leaderData.hasLeader,
-          leadersCount: Object.keys(global.leaderData.leaders || {}).length
-        }
-      });
+      // Try KV first, fall back to global memory
+      let savedToKV = false;
+      try {
+        await kv.set(KV_KEY, dataToStore);
+        savedToKV = true;
+        console.log('✅ Leader data saved to Vercel KV');
+      } catch (kvError) {
+        console.warn('⚠️ Vercel KV unavailable, falling back to global memory:', kvError?.message || kvError);
+      }
 
+      if (!savedToKV) {
+        global.leaderData = dataToStore;
+        console.log('✅ Leader data stored in global memory fallback');
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: 'Leader position updated',
+        activeLeaders: dataToStore.leaders ? Object.keys(dataToStore.leaders).length : 0,
+        storedInKV: savedToKV
+      });
     } catch (error) {
       console.error('❌ Error handling leader update:', error);
-      return res.status(500).json({ 
-        error: 'Internal server error', 
-        details: error.message 
-      });
+      return res.status(500).json({ error: 'Internal server error', details: error.message });
     }
   }
 
