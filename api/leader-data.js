@@ -1,36 +1,44 @@
 // Vercel Serverless Function for Leader Data Retrieval
 // Replaces the leader-data.json file access
 
-// Use the same global Map as leader.js for consistency
-global.leaderDataStore = global.leaderDataStore || new Map();
+import { promises as fs } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 
-function getLeaderData() {
-  const stored = global.leaderDataStore.get('leaderData');
-  if (stored && Date.now() - stored.timestamp < 300000) { // 5 minute cache
-    console.log('📦 Using cached leader data from global store');
-    return stored.data;
+// Get the directory of this file and use it for data storage
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const DATA_FILE = join(__dirname, '..', '..', 'tmp', 'leader-data.json');
+
+// Ensure the tmp directory exists
+async function ensureDataDir() {
+  try {
+    await fs.mkdir(join(__dirname, '..', '..', 'tmp'), { recursive: true });
+  } catch (error) {
+    // Directory might already exist, that's fine
   }
-  
-  console.log('🔄 No cached data found, creating default');
-  
-  // TEMPORARY TEST: Return test data to verify API is working
-  const testData = {
-    hasLeader: true,
-    leaders: {
-      'A': {
-        position: { lat: 40.7128, lng: -74.0060 },
-        stopIndex: 0,
-        lastUpdate: Date.now()
-      }
-    },
-    leaderPosition: { lat: 40.7128, lng: -74.0060 },
-    currentStopIndex: 0,
-    leaderStopIndex: 0,
-    lastUpdate: Date.now()
-  };
-  
-  console.log('🧪 TESTING: Returning test data to verify API works');
-  return testData;
+}
+
+async function getLeaderData() {
+  try {
+    await ensureDataDir();
+    const data = await fs.readFile(DATA_FILE, 'utf8');
+    const parsed = JSON.parse(data);
+    console.log('� Successfully read leader data from file');
+    return parsed;
+  } catch (error) {
+    console.log('⚠️ File read failed, using default data:', error.message);
+    // File doesn't exist or is invalid, return default
+    const defaultData = {
+      hasLeader: false,
+      leaders: {},
+      leaderPosition: null,
+      currentStopIndex: 0,
+      leaderStopIndex: 0,
+      lastUpdate: Date.now()
+    };
+    return defaultData;
+  }
 }
 
 export default async function handler(req, res) {
@@ -51,7 +59,7 @@ export default async function handler(req, res) {
   if (req.method === 'GET') {
     try {
       // Read current leader data from global storage
-      const currentData = getLeaderData();
+      const currentData = await getLeaderData();
 
       // Debug the global store state
       console.log('🔍 Global store debug:', {

@@ -1,56 +1,43 @@
 // Vercel Serverless Function for Leader Position Updates
 // Replaces the /api/leader endpoint from secure_server.py
 
-import { promises as fs } from 'fs';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
+// Use a simple global Map for cross-function persistence
+// This works better than file system in Vercel
+global.leaderDataStore = global.leaderDataStore || new Map();
 
-// Get the directory of this file and use it for data storage
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-const DATA_FILE = join(__dirname, '..', '..', 'tmp', 'leader-data.json');
-
-// Ensure the tmp directory exists
-async function ensureDataDir() {
-  try {
-    await fs.mkdir(join(__dirname, '..', '..', 'tmp'), { recursive: true });
-  } catch (error) {
-    // Directory might already exist, that's fine
+function getLeaderData() {
+  const stored = global.leaderDataStore.get('leaderData');
+  if (stored && Date.now() - stored.timestamp < 300000) { // 5 minute cache
+    console.log('📦 Using cached leader data');
+    return stored.data;
   }
+  
+  console.log('� Creating new default leader data');
+  const defaultData = {
+    hasLeader: false,
+    leaders: {},
+    leaderPosition: null,
+    currentStopIndex: 0,
+    leaderStopIndex: 0,
+    lastUpdate: Date.now()
+  };
+  
+  // Cache it
+  global.leaderDataStore.set('leaderData', {
+    data: defaultData,
+    timestamp: Date.now()
+  });
+  
+  return defaultData;
 }
 
-async function getLeaderData() {
-  try {
-    await ensureDataDir();
-    const data = await fs.readFile(DATA_FILE, 'utf8');
-    const parsed = JSON.parse(data);
-    console.log('📁 Successfully read existing leader data from file');
-    return parsed;
-  } catch (error) {
-    console.log('⚠️ File read failed, creating default data:', error.message);
-    // File doesn't exist or is invalid, return default
-    const defaultData = {
-      hasLeader: false,
-      leaders: {},
-      leaderPosition: null,
-      currentStopIndex: 0,
-      leaderStopIndex: 0,
-      lastUpdate: Date.now()
-    };
-    return defaultData;
-  }
-}
-
-async function setLeaderData(data) {
-  try {
-    await ensureDataDir();
-    await fs.writeFile(DATA_FILE, JSON.stringify(data, null, 2));
-    console.log('💾 Successfully wrote leader data to file');
-    return true;
-  } catch (error) {
-    console.error('❌ Failed to write leader data to file:', error.message);
-    return false;
-  }
+function setLeaderData(data) {
+  console.log('💾 Storing leader data in global cache');
+  global.leaderDataStore.set('leaderData', {
+    data: data,
+    timestamp: Date.now()
+  });
+  return true;
 }
 
 export default async function handler(req, res) {
@@ -119,7 +106,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ 
         success: true, 
         message: 'Leader position updated',
-        activeLeaders: updatedData.leaders ? Object.keys(updatedData.leaders).length : 0
+        activeLeaders: global.leaderData?.leaders ? Object.keys(global.leaderData.leaders).length : 1
       });
 
     } catch (error) {
@@ -131,6 +118,34 @@ export default async function handler(req, res) {
     }
   }
 
-  // Handle other methods
+  if (req.method === 'GET') {
+    try {
+      // Return current leader data (for follower polling)
+      const currentData = global.leaderData || {
+        hasLeader: false,
+        leaders: {},
+        lastUpdate: Date.now()
+      };
+
+      return res.status(200).json(currentData);
+
+    } catch (error) {
+      console.error('❌ Error retrieving leader data:', error);
+      return res.status(500).json({ 
+        error: 'Internal server error', 
+        message: error.message 
+      });
+    }
+  }
+
   return res.status(405).json({ error: 'Method not allowed' });
+}
+
+// Initialize global storage (temporary until we add Vercel KV)
+if (typeof global.leaderData === 'undefined') {
+  global.leaderData = {
+    hasLeader: false,
+    leaders: {},
+    lastUpdate: Date.now()
+  };
 }
