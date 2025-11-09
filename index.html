@@ -1072,6 +1072,14 @@
                         rawResponse: leaderData
                     });
                     
+                    // BIG DEBUG ALERT - Easy to spot
+                    console.log('🚨🚨🚨 FOLLOWER DEBUG ALERT 🚨🚨🚨');
+                    console.log('Has Leader:', leaderData.hasLeader);
+                    console.log('Leaders Count:', Object.keys(leaderData.leaders || {}).length);
+                    console.log('Function ID:', leaderData.debug?.functionId || 'not found');
+                    console.log('Global Cache Exists:', leaderData.debug?.globalCacheExists);
+                    console.log('🚨🚨🚨 END DEBUG ALERT 🚨🚨🚨');
+                    
                     if (leaderData.hasLeader) {
                         console.log('✅ Has leader data - processing...');
                         // Check for new multi-leader structure
@@ -2274,7 +2282,16 @@
                     });
                     
                     if (response.ok) {
+                        const responseData = await response.json();
                         console.log(`📡 Leader position broadcasted successfully (moved ${(distanceMoved * 1000).toFixed(1)}m):`, leaderPosition);
+                        
+                        // BIG DEBUG ALERT - Easy to spot
+                        console.log('🔥🔥🔥 LEADER DEBUG ALERT 🔥🔥🔥');
+                        console.log('Broadcast Success:', responseData.success);
+                        console.log('Active Leaders:', responseData.activeLeaders);
+                        console.log('Function ID:', responseData.debug?.functionId || 'not found');
+                        console.log('Immediate Read Test:', responseData.debug?.immediateReadTest);
+                        console.log('🔥🔥🔥 END DEBUG ALERT 🔥🔥🔥');
                     } else {
                         console.warn('Failed to broadcast leader position:', response.status);
                     }
