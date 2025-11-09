@@ -1,42 +1,27 @@
 // Vercel Serverless Function for Leader Data Retrieval
 // Replaces the leader-data.json file access
 
-import { promises as fs } from 'fs';
+// Use the same global Map as leader.js for consistency
+global.leaderDataStore = global.leaderDataStore || new Map();
 
-// Use /tmp directory for temporary data storage in Vercel
-const DATA_FILE = '/tmp/leader-data.json';
-
-// In-memory backup for immediate consistency
-let memoryBackup = null;
-
-async function readLeaderData() {
-  try {
-    // Try memory backup first
-    if (memoryBackup && Date.now() - memoryBackup.memoryTimestamp < 30000) { // 30 second cache
-      console.log('📦 Using memory backup data');
-      return memoryBackup;
-    }
-    
-    // Try file system
-    const data = await fs.readFile(DATA_FILE, 'utf8');
-    const parsed = JSON.parse(data);
-    memoryBackup = { ...parsed, memoryTimestamp: Date.now() };
-    console.log('📁 Read data from file system');
-    return parsed;
-  } catch (error) {
-    console.log('⚠️ File read failed, using default data:', error.message);
-    // File doesn't exist or is invalid, return default
-    const defaultData = {
-      hasLeader: false,
-      leaders: {},
-      leaderPosition: null,
-      currentStopIndex: 0,
-      leaderStopIndex: 0,
-      lastUpdate: Date.now()
-    };
-    memoryBackup = { ...defaultData, memoryTimestamp: Date.now() };
-    return defaultData;
+function getLeaderData() {
+  const stored = global.leaderDataStore.get('leaderData');
+  if (stored && Date.now() - stored.timestamp < 300000) { // 5 minute cache
+    console.log('📦 Using cached leader data from global store');
+    return stored.data;
   }
+  
+  console.log('🔄 No cached data found, creating default');
+  const defaultData = {
+    hasLeader: false,
+    leaders: {},
+    leaderPosition: null,
+    currentStopIndex: 0,
+    leaderStopIndex: 0,
+    lastUpdate: Date.now()
+  };
+  
+  return defaultData;
 }
 
 export default async function handler(req, res) {
@@ -56,8 +41,8 @@ export default async function handler(req, res) {
 
   if (req.method === 'GET') {
     try {
-      // Read current leader data from persistent storage
-      const currentData = await readLeaderData();
+      // Read current leader data from global storage
+      const currentData = getLeaderData();
 
       // Add cache busting timestamp
       const responseData = {
@@ -70,7 +55,7 @@ export default async function handler(req, res) {
         hasLeader: responseData.hasLeader,
         leadersCount: Object.keys(responseData.leaders || {}).length,
         lastUpdate: responseData.lastUpdate,
-        fileExists: true
+        cacheSource: 'global'
       });
 
       return res.status(200).json(responseData);

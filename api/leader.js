@@ -1,59 +1,43 @@
 // Vercel Serverless Function for Leader Position Updates
 // Replaces the /api/leader endpoint from secure_server.py
 
-import { promises as fs } from 'fs';
-import path from 'path';
+// Use a simple global Map for cross-function persistence
+// This works better than file system in Vercel
+global.leaderDataStore = global.leaderDataStore || new Map();
 
-// Use /tmp directory for temporary data storage in Vercel
-const DATA_FILE = '/tmp/leader-data.json';
-
-// In-memory backup for immediate consistency
-let memoryBackup = null;
-
-async function readLeaderData() {
-  try {
-    // Try memory backup first
-    if (memoryBackup && Date.now() - memoryBackup.memoryTimestamp < 30000) { // 30 second cache
-      console.log('📦 Using memory backup data');
-      return memoryBackup;
-    }
-    
-    // Try file system
-    const data = await fs.readFile(DATA_FILE, 'utf8');
-    const parsed = JSON.parse(data);
-    memoryBackup = { ...parsed, memoryTimestamp: Date.now() };
-    console.log('📁 Read data from file system');
-    return parsed;
-  } catch (error) {
-    console.log('⚠️ File read failed, using default data:', error.message);
-    // File doesn't exist or is invalid, return default
-    const defaultData = {
-      hasLeader: false,
-      leaders: {},
-      leaderPosition: null,
-      currentStopIndex: 0,
-      leaderStopIndex: 0,
-      lastUpdate: Date.now()
-    };
-    memoryBackup = { ...defaultData, memoryTimestamp: Date.now() };
-    return defaultData;
+function getLeaderData() {
+  const stored = global.leaderDataStore.get('leaderData');
+  if (stored && Date.now() - stored.timestamp < 300000) { // 5 minute cache
+    console.log('📦 Using cached leader data');
+    return stored.data;
   }
+  
+  console.log('� Creating new default leader data');
+  const defaultData = {
+    hasLeader: false,
+    leaders: {},
+    leaderPosition: null,
+    currentStopIndex: 0,
+    leaderStopIndex: 0,
+    lastUpdate: Date.now()
+  };
+  
+  // Cache it
+  global.leaderDataStore.set('leaderData', {
+    data: defaultData,
+    timestamp: Date.now()
+  });
+  
+  return defaultData;
 }
 
-async function writeLeaderData(data) {
-  try {
-    // Update memory backup immediately
-    memoryBackup = { ...data, memoryTimestamp: Date.now() };
-    
-    // Try to write to file system
-    await fs.writeFile(DATA_FILE, JSON.stringify(data, null, 2));
-    console.log('💾 Data written to file system and memory');
-    return true;
-  } catch (error) {
-    console.error('❌ Failed to write to file system, keeping memory backup:', error.message);
-    // Keep memory backup even if file write fails
-    return true; // Return true because we have memory backup
-  }
+function setLeaderData(data) {
+  console.log('💾 Storing leader data in global cache');
+  global.leaderDataStore.set('leaderData', {
+    data: data,
+    timestamp: Date.now()
+  });
+  return true;
 }
 
 export default async function handler(req, res) {
@@ -79,7 +63,7 @@ export default async function handler(req, res) {
       });
 
       // Read existing data and merge
-      const existingData = await readLeaderData();
+      const existingData = getLeaderData();
       
       console.log('📦 Existing data before merge:', {
         hasLeader: existingData.hasLeader,
@@ -110,7 +94,7 @@ export default async function handler(req, res) {
       }
 
       // Save the updated data
-      await writeLeaderData(updatedData);
+      setLeaderData(updatedData);
       
       console.log('✅ Final stored data:', {
         hasLeader: updatedData.hasLeader,
