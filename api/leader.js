@@ -1,6 +1,6 @@
 // Vercel Serverless Function for Leader Position Updates
-// Simplified storage approach
-import { storage } from './storage.js';
+// External storage approach using JSONBin.io
+import { storage } from './external-storage.js';
 
 export default async function handler(req, res) {
   console.log('📡 leader API called');
