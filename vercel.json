@@ -1,6 +1,8 @@
 {
   "version": 2,
   "name": "victory-walk-tracker",
+  "buildCommand": "",
+  "outputDirectory": "./",
   "functions": {
     "api/**/*.js": {
       "maxDuration": 10
