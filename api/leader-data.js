@@ -1,7 +1,22 @@
 // Vercel Serverless Function for Leader Data Retrieval
-// Shared Map using global object (same approach as test-storage.js)
-if (!global.leaderStore) {
-  global.leaderStore = new Map();
+import fs from 'fs';
+import path from 'path';
+
+// Use /tmp directory for temporary file storage (works in Vercel)
+const DATA_FILE = '/tmp/leader-data.json';
+
+// Helper function for file-based storage
+function loadLeaderData() {
+  try {
+    if (fs.existsSync(DATA_FILE)) {
+      const data = fs.readFileSync(DATA_FILE, 'utf8');
+      return JSON.parse(data);
+    }
+    return null;
+  } catch (error) {
+    console.error('❌ Error loading leader data:', error);
+    return null;
+  }
 }
 
 export default async function handler(req, res) {
@@ -23,21 +38,12 @@ export default async function handler(req, res) {
 
   if (req.method === 'GET') {
     try {
-      // Get data from the same Map the leader uses
-      const currentData = global.leaderStore.get('currentLeaderData');
+      // Load data from file
+      const currentData = loadLeaderData();
       
-      // Debug all Map contents
-      const allMapKeys = Array.from(global.leaderStore.keys());
-      const allMapData = {};
-      for (const key of allMapKeys) {
-        allMapData[key] = global.leaderStore.get(key);
-      }
-      
-      console.log('🔍 DEBUG - Complete Map state:', {
-        mapSize: global.leaderStore.size,
-        allKeys: allMapKeys,
-        hasCurrentData: global.leaderStore.has('currentLeaderData'),
-        allMapData: allMapData,
+      console.log('🔍 DEBUG - File-based storage state:', {
+        fileExists: fs.existsSync(DATA_FILE),
+        hasData: !!currentData,
         rawCurrentData: currentData
       });
 
@@ -61,7 +67,7 @@ export default async function handler(req, res) {
         hasLeader: responseData.hasLeader,
         leadersCount: Object.keys(responseData.leaders || {}).length,
         lastUpdate: responseData.lastUpdate,
-        mapSize: global.leaderStore.size
+        fileExists: fs.existsSync(DATA_FILE)
       });
 
       return res.status(200).json(responseData);

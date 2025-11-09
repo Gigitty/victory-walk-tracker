@@ -1,7 +1,32 @@
 // Vercel Serverless Function for Leader Position Updates
-// Shared Map using global object (same approach as test-storage.js)
-if (!global.leaderStore) {
-  global.leaderStore = new Map();
+import fs from 'fs';
+import path from 'path';
+
+// Use /tmp directory for temporary file storage (works in Vercel)
+const DATA_FILE = '/tmp/leader-data.json';
+
+// Helper functions for file-based storage
+function saveLeaderData(data) {
+  try {
+    fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+    return true;
+  } catch (error) {
+    console.error('❌ Error saving leader data:', error);
+    return false;
+  }
+}
+
+function loadLeaderData() {
+  try {
+    if (fs.existsSync(DATA_FILE)) {
+      const data = fs.readFileSync(DATA_FILE, 'utf8');
+      return JSON.parse(data);
+    }
+    return null;
+  } catch (error) {
+    console.error('❌ Error loading leader data:', error);
+    return null;
+  }
 }
 
 export default async function handler(req, res) {
@@ -27,30 +52,38 @@ export default async function handler(req, res) {
         hasMultipleLeaders: !!leaderData.leaders
       });
 
-      // Store the entire leader data object
-      global.leaderStore.set('currentLeaderData', {
+      // Prepare data to store
+      const dataToStore = {
         ...leaderData,
         lastServerUpdate: Date.now(),
         storeTimestamp: Date.now()
-      });
+      };
+
+      // Save to file
+      const saved = saveLeaderData(dataToStore);
       
-      const stored = global.leaderStore.get('currentLeaderData');
+      if (!saved) {
+        return res.status(500).json({ error: 'Failed to save leader data' });
+      }
+
+      // Verify the save by reading it back
+      const verification = loadLeaderData();
       
-      console.log('✅ Stored leader data:', {
-        hasLeader: stored.hasLeader,
-        leadersCount: Object.keys(stored.leaders || {}).length,
-        lastUpdate: stored.lastUpdate,
-        mapSize: global.leaderStore.size
+      console.log('✅ Stored leader data to file:', {
+        hasLeader: verification?.hasLeader,
+        leadersCount: Object.keys(verification?.leaders || {}).length,
+        lastUpdate: verification?.lastUpdate,
+        fileExists: fs.existsSync(DATA_FILE)
       });
 
       return res.status(200).json({ 
         success: true, 
         message: 'Leader position updated',
-        activeLeaders: stored.leaders ? Object.keys(stored.leaders).length : 0,
-        mapSize: global.leaderStore.size,
+        activeLeaders: verification?.leaders ? Object.keys(verification.leaders).length : 0,
+        fileExists: fs.existsSync(DATA_FILE),
         stored: {
-          hasLeader: stored.hasLeader,
-          leadersCount: Object.keys(stored.leaders || {}).length
+          hasLeader: verification?.hasLeader,
+          leadersCount: Object.keys(verification?.leaders || {}).length
         }
       });
 
