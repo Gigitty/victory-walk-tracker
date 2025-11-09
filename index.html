@@ -1080,6 +1080,11 @@
                     console.log('Global Cache Exists:', leaderData.debug?.globalCacheExists);
                     console.log('🚨🚨🚨 END DEBUG ALERT 🚨🚨🚨');
                     
+                    // TEST SIMPLE STORAGE
+                    if (Math.random() < 0.1) { // 10% of the time
+                        this.testSimpleStorage();
+                    }
+                    
                     if (leaderData.hasLeader) {
                         console.log('✅ Has leader data - processing...');
                         // Check for new multi-leader structure

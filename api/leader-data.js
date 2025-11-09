@@ -41,9 +41,10 @@ export default async function handler(req, res) {
 
       console.log('🔍 DEBUG - Global cache state:', {
         cacheExists: !!global.leaderDataCache,
-        cacheData: global.leaderDataCache,
+        cacheData: JSON.stringify(global.leaderDataCache, null, 2),
         hasLeader: currentData?.hasLeader,
-        leadersCount: Object.keys(currentData?.leaders || {}).length
+        leadersCount: Object.keys(currentData?.leaders || {}).length,
+        rawCurrentData: currentData
       });
 
       // Add cache busting timestamp
