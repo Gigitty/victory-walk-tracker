@@ -1,6 +1,28 @@
 // Vercel Serverless Function for Leader Data Retrieval
 // Replaces the leader-data.json file access
 
+import { promises as fs } from 'fs';
+
+// Use /tmp directory for temporary data storage in Vercel
+const DATA_FILE = '/tmp/leader-data.json';
+
+async function readLeaderData() {
+  try {
+    const data = await fs.readFile(DATA_FILE, 'utf8');
+    return JSON.parse(data);
+  } catch (error) {
+    // File doesn't exist or is invalid, return default
+    return {
+      hasLeader: false,
+      leaders: {},
+      leaderPosition: null,
+      currentStopIndex: 0,
+      leaderStopIndex: 0,
+      lastUpdate: Date.now()
+    };
+  }
+}
+
 export default async function handler(req, res) {
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -18,15 +40,8 @@ export default async function handler(req, res) {
 
   if (req.method === 'GET') {
     try {
-      // Return current leader data (same as what was in leader-data.json)
-      const currentData = global.leaderData || {
-        hasLeader: false,
-        leaders: {},
-        leaderPosition: null,
-        currentStopIndex: 0,
-        leaderStopIndex: 0,
-        lastUpdate: Date.now()
-      };
+      // Read current leader data from persistent storage
+      const currentData = await readLeaderData();
 
       // Add cache busting timestamp
       const responseData = {
@@ -34,6 +49,12 @@ export default async function handler(req, res) {
         timestamp: Date.now(),
         serverTime: new Date().toISOString()
       };
+
+      console.log('📡 Serving leader data:', {
+        hasLeader: responseData.hasLeader,
+        leadersCount: Object.keys(responseData.leaders || {}).length,
+        lastUpdate: responseData.lastUpdate
+      });
 
       return res.status(200).json(responseData);
 

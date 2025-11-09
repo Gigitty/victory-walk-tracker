@@ -1,6 +1,39 @@
 // Vercel Serverless Function for Leader Position Updates
 // Replaces the /api/leader endpoint from secure_server.py
 
+import { promises as fs } from 'fs';
+import path from 'path';
+
+// Use /tmp directory for temporary data storage in Vercel
+const DATA_FILE = '/tmp/leader-data.json';
+
+async function readLeaderData() {
+  try {
+    const data = await fs.readFile(DATA_FILE, 'utf8');
+    return JSON.parse(data);
+  } catch (error) {
+    // File doesn't exist or is invalid, return default
+    return {
+      hasLeader: false,
+      leaders: {},
+      leaderPosition: null,
+      currentStopIndex: 0,
+      leaderStopIndex: 0,
+      lastUpdate: Date.now()
+    };
+  }
+}
+
+async function writeLeaderData(data) {
+  try {
+    await fs.writeFile(DATA_FILE, JSON.stringify(data, null, 2));
+    return true;
+  } catch (error) {
+    console.error('Failed to write leader data:', error);
+    return false;
+  }
+}
+
 export default async function handler(req, res) {
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -15,8 +48,6 @@ export default async function handler(req, res) {
     try {
       const leaderData = req.body;
       
-      // For now, we'll use a simple in-memory storage simulation
-      // In production, this would use Vercel KV or a database
       console.log('📡 Leader position update received:', {
         lat: leaderData.leaderPosition?.lat,
         lng: leaderData.leaderPosition?.lng,
@@ -24,28 +55,32 @@ export default async function handler(req, res) {
         hasMultipleLeaders: !!leaderData.leaders
       });
 
-      // Simulate saving to storage
-      // TODO: Replace with Vercel KV when we set it up
-      global.leaderData = {
-        ...global.leaderData,
+      // Read existing data and merge
+      const existingData = await readLeaderData();
+      
+      const updatedData = {
+        ...existingData,
         ...leaderData,
         lastServerUpdate: Date.now()
       };
 
       // Merge multiple leaders if present
       if (leaderData.leaders) {
-        if (!global.leaderData.leaders) {
-          global.leaderData.leaders = {};
+        if (!updatedData.leaders) {
+          updatedData.leaders = {};
         }
         
         // Merge the new leader data
         for (const [leaderType, leaderInfo] of Object.entries(leaderData.leaders)) {
-          global.leaderData.leaders[leaderType] = leaderInfo;
+          updatedData.leaders[leaderType] = leaderInfo;
         }
         
-        global.leaderData.hasLeader = true;
-        global.leaderData.lastUpdate = leaderData.lastUpdate || Date.now();
+        updatedData.hasLeader = true;
+        updatedData.lastUpdate = leaderData.lastUpdate || Date.now();
       }
+
+      // Save the updated data
+      await writeLeaderData(updatedData);
 
       return res.status(200).json({ 
         success: true, 
