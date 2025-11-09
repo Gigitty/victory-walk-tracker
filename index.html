@@ -999,11 +999,14 @@
 
             setupLocalStorageListeners() {
                 console.log('🔧 Setting up localStorage listeners for leader tracking');
+                console.log('🔧 Current isLeaderMode:', this.isLeaderMode);
                 
                 // Check for leader updates every 2 seconds via HTTP (followers only)
                 this.storageCheckInterval = setInterval(() => {
                     this.checkForLeaderUpdatesHTTP();
                 }, 2000);
+                
+                console.log('🔧 Polling interval started - checking every 2 seconds');
                 
                 // Listen for storage events (works across tabs/windows)
                 window.addEventListener('storage', (e) => {
@@ -1032,10 +1035,15 @@
             }
 
             async checkForLeaderUpdatesHTTP() {
+                console.log('🔍 checkForLeaderUpdatesHTTP called - isLeaderMode:', this.isLeaderMode);
+                
                 if (this.isLeaderMode) {
                     // Leaders should NOT poll for updates - they broadcast instead
+                    console.log('🚫 Skipping leader polling - user is in leader mode');
                     return;
                 }
+                
+                console.log('📡 Follower checking for leader updates...');
                 
                 try {
                     const url = `/api/leader-data?t=${Date.now()}`;
