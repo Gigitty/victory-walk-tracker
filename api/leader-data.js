@@ -37,19 +37,32 @@ export default async function handler(req, res) {
       const currentData = global.leaderDataCache.data;
       const cacheAge = Date.now() - global.leaderDataCache.timestamp;
 
+      console.log('🔍 DEBUG - Global cache state:', {
+        cacheExists: !!global.leaderDataCache,
+        cacheData: global.leaderDataCache,
+        hasLeader: currentData?.hasLeader,
+        leadersCount: Object.keys(currentData?.leaders || {}).length
+      });
+
       // Add cache busting timestamp
       const responseData = {
         ...currentData,
         timestamp: Date.now(),
         serverTime: new Date().toISOString(),
-        cacheAge: cacheAge
+        cacheAge: cacheAge,
+        debug: {
+          globalCacheExists: !!global.leaderDataCache,
+          cacheTimestamp: global.leaderDataCache.timestamp,
+          functionId: process.env.VERCEL_REGION || 'unknown'
+        }
       };
 
       console.log('📡 Serving leader data from cache:', {
         hasLeader: responseData.hasLeader,
         leadersCount: Object.keys(responseData.leaders || {}).length,
         lastUpdate: responseData.lastUpdate,
-        cacheAge: cacheAge
+        cacheAge: cacheAge,
+        functionId: responseData.debug.functionId
       });
 
       return res.status(200).json(responseData);

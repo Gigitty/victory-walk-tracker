@@ -79,14 +79,29 @@ export default async function handler(req, res) {
         hasLeader: updatedData.hasLeader,
         leadersCount: Object.keys(updatedData.leaders || {}).length,
         lastUpdate: updatedData.lastUpdate,
-        cacheTimestamp: global.leaderDataCache.timestamp
+        cacheTimestamp: global.leaderDataCache.timestamp,
+        functionId: process.env.VERCEL_REGION || 'unknown'
+      });
+
+      // Test: Try to read back immediately to verify storage
+      const testRead = global.leaderDataCache.data;
+      console.log('🧪 Immediate read test:', {
+        hasLeader: testRead.hasLeader,
+        leadersCount: Object.keys(testRead.leaders || {}).length
       });
 
       return res.status(200).json({ 
         success: true, 
         message: 'Leader position updated',
         activeLeaders: updatedData.leaders ? Object.keys(updatedData.leaders).length : 0,
-        cacheUpdated: true
+        cacheUpdated: true,
+        debug: {
+          functionId: process.env.VERCEL_REGION || 'unknown',
+          immediateReadTest: {
+            hasLeader: testRead.hasLeader,
+            leadersCount: Object.keys(testRead.leaders || {}).length
+          }
+        }
       });
 
     } catch (error) {
