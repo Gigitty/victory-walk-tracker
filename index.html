@@ -975,9 +975,9 @@
                 
                 // Throttling for leader position broadcasts
                 this.lastBroadcastTime = 0;
-                this.broadcastThrottle = 5000; // Only broadcast every 5 seconds (reduced server load)
+                this.broadcastThrottle = 5000; // Only broadcast every 5 seconds
                 this.lastBroadcastPosition = null;
-                this.minDistanceThreshold = 0.0001; // TESTING: Reduced to ~10cm for testing (was 5m)
+                this.minDistanceThreshold = 0.005; // Only broadcast if moved 5+ meters (in km)
                 
                 this.init();
             }
