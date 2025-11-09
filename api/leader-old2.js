@@ -2,15 +2,29 @@
 // Replaces the /api/leader endpoint from secure_server.py
 
 import { promises as fs } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 
-// Use Vercel's /tmp directory with a simple filename
-const DATA_FILE = '/tmp/leader-data.json';
+// Get the directory of this file and use it for data storage
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const DATA_FILE = join(__dirname, '..', '..', 'tmp', 'leader-data.json');
+
+// Ensure the tmp directory exists
+async function ensureDataDir() {
+  try {
+    await fs.mkdir(join(__dirname, '..', '..', 'tmp'), { recursive: true });
+  } catch (error) {
+    // Directory might already exist, that's fine
+  }
+}
 
 async function getLeaderData() {
   try {
+    await ensureDataDir();
     const data = await fs.readFile(DATA_FILE, 'utf8');
     const parsed = JSON.parse(data);
-    console.log('📁 Successfully read existing leader data from /tmp file');
+    console.log('📁 Successfully read existing leader data from file');
     return parsed;
   } catch (error) {
     console.log('⚠️ File read failed, creating default data:', error.message);
@@ -29,11 +43,12 @@ async function getLeaderData() {
 
 async function setLeaderData(data) {
   try {
+    await ensureDataDir();
     await fs.writeFile(DATA_FILE, JSON.stringify(data, null, 2));
-    console.log('💾 Successfully wrote leader data to /tmp file');
+    console.log('💾 Successfully wrote leader data to file');
     return true;
   } catch (error) {
-    console.error('❌ Failed to write leader data to /tmp file:', error.message);
+    console.error('❌ Failed to write leader data to file:', error.message);
     return false;
   }
 }
@@ -57,7 +72,7 @@ export default async function handler(req, res) {
         lng: leaderData.leaderPosition?.lng,
         leaderType: leaderData.leaderPosition?.leaderType,
         hasMultipleLeaders: !!leaderData.leaders,
-        dataFile: DATA_FILE
+        fullLeaderData: leaderData
       });
 
       // Read existing data and merge
@@ -92,20 +107,19 @@ export default async function handler(req, res) {
       }
 
       // Save the updated data
-      const writeSuccess = await setLeaderData(updatedData);
+      await setLeaderData(updatedData);
       
       console.log('✅ Final stored data:', {
         hasLeader: updatedData.hasLeader,
         leadersCount: Object.keys(updatedData.leaders || {}).length,
         lastUpdate: updatedData.lastUpdate,
-        writeSuccess: writeSuccess
+        leaders: updatedData.leaders
       });
 
       return res.status(200).json({ 
         success: true, 
         message: 'Leader position updated',
-        activeLeaders: updatedData.leaders ? Object.keys(updatedData.leaders).length : 0,
-        writeSuccess: writeSuccess
+        activeLeaders: updatedData.leaders ? Object.keys(updatedData.leaders).length : 0
       });
 
     } catch (error) {

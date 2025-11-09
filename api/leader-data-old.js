@@ -2,15 +2,29 @@
 // Replaces the leader-data.json file access
 
 import { promises as fs } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 
-// Use Vercel's /tmp directory with a simple filename
-const DATA_FILE = '/tmp/leader-data.json';
+// Get the directory of this file and use it for data storage
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const DATA_FILE = join(__dirname, '..', '..', 'tmp', 'leader-data.json');
+
+// Ensure the tmp directory exists
+async function ensureDataDir() {
+  try {
+    await fs.mkdir(join(__dirname, '..', '..', 'tmp'), { recursive: true });
+  } catch (error) {
+    // Directory might already exist, that's fine
+  }
+}
 
 async function getLeaderData() {
   try {
+    await ensureDataDir();
     const data = await fs.readFile(DATA_FILE, 'utf8');
     const parsed = JSON.parse(data);
-    console.log('📁 Successfully read leader data from /tmp file');
+    console.log('� Successfully read leader data from file');
     return parsed;
   } catch (error) {
     console.log('⚠️ File read failed, using default data:', error.message);
@@ -44,8 +58,15 @@ export default async function handler(req, res) {
 
   if (req.method === 'GET') {
     try {
-      // Read current leader data from file storage
+      // Read current leader data from global storage
       const currentData = await getLeaderData();
+
+      // Debug the global store state
+      console.log('🔍 Global store debug:', {
+        storeSize: global.leaderDataStore?.size || 0,
+        storeKeys: global.leaderDataStore ? Array.from(global.leaderDataStore.keys()) : [],
+        hasStoredData: global.leaderDataStore?.has('leaderData') || false
+      });
 
       // Add cache busting timestamp
       const responseData = {
@@ -58,7 +79,8 @@ export default async function handler(req, res) {
         hasLeader: responseData.hasLeader,
         leadersCount: Object.keys(responseData.leaders || {}).length,
         lastUpdate: responseData.lastUpdate,
-        dataFile: DATA_FILE
+        cacheSource: 'global',
+        fullData: responseData
       });
 
       return res.status(200).json(responseData);
