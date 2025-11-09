@@ -2,17 +2,19 @@
 // Simple in-memory storage with timestamp validation
 
 // Global in-memory storage that persists for the function lifetime
-global.leaderDataCache = global.leaderDataCache || {
-  data: {
-    hasLeader: false,
-    leaders: {},
-    leaderPosition: null,
-    currentStopIndex: 0,
-    leaderStopIndex: 0,
-    lastUpdate: 0
-  },
-  timestamp: 0
-};
+if (!global.leaderDataCache) {
+  global.leaderDataCache = {
+    data: {
+      hasLeader: false,
+      leaders: {},
+      leaderPosition: null,
+      currentStopIndex: 0,
+      leaderStopIndex: 0,
+      lastUpdate: 0
+    },
+    timestamp: 0
+  };
+}
 
 export default async function handler(req, res) {
   console.log('📡 leader API called');
