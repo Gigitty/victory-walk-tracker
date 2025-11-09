@@ -1093,10 +1093,43 @@
                                 this.lastLeaderUpdate = leaderData.lastUpdate;
                             }
                         }
+                    } else {
+                        // CRITICAL FIX: If server GET failed, try cached data from successful POST
+                        console.log('⚠️ Server GET returned no leader data - checking cache...');
+                        const cachedData = localStorage.getItem('victoryWalkServerCache');
+                        if (cachedData) {
+                            try {
+                                const cache = JSON.parse(cachedData);
+                                const cacheAge = Date.now() - cache.timestamp;
+                                console.log(`🔄 Found cached data from ${cache.source}, age: ${Math.round(cacheAge/1000)}s`);
+                                
+                                // Use cached data if it's recent (less than 30 seconds old)
+                                if (cacheAge < 30000 && cache.data.hasLeader) {
+                                    console.log('✅ Using cached leader data for cross-device sync');
+                                    this.updateMultipleLeaders(cache.data);
+                                    this.lastLeaderUpdate = cache.data.lastUpdate;
+                                }
+                            } catch (cacheError) {
+                                console.warn('Cache parse error:', cacheError);
+                            }
+                        }
                     }
                 } catch (error) {
                     console.warn('Could not fetch leader data from API:', error);
-                    // No fallback needed - API endpoint should work
+                    // CRITICAL FIX: Always try cache as fallback
+                    const cachedData = localStorage.getItem('victoryWalkServerCache');
+                    if (cachedData) {
+                        try {
+                            const cache = JSON.parse(cachedData);
+                            console.log('🔄 API failed - using cached data as fallback');
+                            if (cache.data.hasLeader) {
+                                this.updateMultipleLeaders(cache.data);
+                                this.lastLeaderUpdate = cache.data.lastUpdate;
+                            }
+                        } catch (cacheError) {
+                            console.warn('Cache fallback failed:', cacheError);
+                        }
+                    }
                 }
             }
 
@@ -2274,7 +2307,18 @@
                     
                     if (response.ok) {
                         const responseData = await response.json();
-                        console.log(`📡 Leader broadcast success - Active Leaders: ${responseData.activeLeaders}, Map Size: ${responseData.mapSize}`);
+                        console.log(`📡 Leader broadcast success - Active Leaders: ${responseData.activeLeaders}`);
+                        
+                        // CRITICAL FIX: Store the successful leader data globally for immediate cross-device access
+                        if (responseData.leaderData) {
+                            // Store in localStorage as backup for other browser windows
+                            localStorage.setItem('victoryWalkServerCache', JSON.stringify({
+                                data: responseData.leaderData,
+                                timestamp: Date.now(),
+                                source: 'POST_response'
+                            }));
+                            console.log('💾 Cached successful server response for cross-device sync');
+                        }
                     } else {
                         console.warn('Failed to broadcast leader position:', response.status);
                     }
