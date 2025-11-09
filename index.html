@@ -1,0 +1,2697 @@
+<!DOCTYPE html>
+<!-- Auto-versioned: v2.0.2 - Force Fresh Version -->
+<html lang="en">
+<head>
+    <script>
+        // IMMEDIATE cache busting - runs before anything else loads
+        (function() {
+            console.log('🔍 Current URL:', window.location.href);
+            
+            // Check if we already have a version parameter
+            const url = new URL(window.location);
+            const hasVersion = url.searchParams.has('v') || url.searchParams.has('t');
+            
+            if (!hasVersion) {
+                // Add timestamp and reload
+                const timestamp = Date.now();
+                url.searchParams.set('v', timestamp);
+                console.log('🔄 Redirecting to:', url.href);
+                window.location.href = url.href;
+                throw new Error('Redirecting...'); // Stop all execution
+            }
+            
+            console.log('✅ Fresh version loaded!');
+        })();
+    </script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#1e3a8a">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <script>
+        // Double-check backup redirect
+        setTimeout(function() {
+            if (!window.location.search.includes('v=') && !window.location.search.includes('t=')) {
+                console.log('🚨 Backup redirect triggered');
+                window.location.href = window.location.pathname + '?t=' + Date.now();
+            }
+        }, 100);
+    </script>
+    <title>Victory Walk Route and Tracker</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="manifest" href="manifest.json">
+    
+    <script>
+        // Simple local storage-based real-time simulation for testing
+        // In production, this would be replaced with actual Firebase or WebSocket server
+        console.log('� Using local storage simulation for multi-user testing');
+    </script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            height: 100%;
+            overflow-x: hidden;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+            color: #ffffff;
+            overflow-x: hidden;
+            min-height: 100vh;
+            min-height: 100dvh; /* Dynamic viewport height for mobile */
+            position: relative;
+            
+            /* Mobile-specific fixes to eliminate white borders */
+            -webkit-overflow-scrolling: touch;
+            background-attachment: fixed;
+        }
+
+        /* Ensure full coverage on mobile devices */
+        html, body {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+            background-attachment: fixed;
+            background-repeat: no-repeat;
+            background-size: cover;
+        }
+
+        /* Mobile viewport fixes */
+        @media screen and (max-width: 768px) {
+            body {
+                min-height: 100vh;
+                min-height: 100dvh;
+                margin: 0;
+                padding: 0;
+                position: relative;
+            }
+            
+            /* Extend background beyond viewport edges */
+            body::before {
+                content: '';
+                position: fixed;
+                top: -100px;
+                left: -100px;
+                right: -100px;
+                bottom: -100px;
+                background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+                z-index: -1;
+            }
+        }
+
+        /* Header */
+        .header {
+            background: rgba(30, 58, 138, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 16px 20px;
+            text-align: center;
+            border-bottom: 2px solid #fbbf24;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .header-logo {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 8px;
+        }
+
+        .header-logo img {
+            height: 32px;
+            width: auto;
+            margin-right: 12px;
+        }
+
+        .header h1 {
+            font-size: 1.4rem;
+            font-weight: 700;
+            margin-bottom: 4px;
+            color: #fbbf24;
+        }
+
+        .header p {
+            font-size: 0.9rem;
+            opacity: 0.9;
+            font-weight: 300;
+        }
+
+        /* Status Bar */
+        .status-bar {
+            background: rgba(251, 191, 36, 0.1);
+            border: 1px solid #fbbf24;
+            margin: 16px 20px;
+            border-radius: 12px;
+            padding: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .current-location {
+            flex: 1;
+        }
+
+        .current-location h3 {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #fbbf24;
+            margin-bottom: 4px;
+        }
+
+        .current-location p {
+            font-size: 1.1rem;
+            font-weight: 500;
+        }
+
+        .live-indicator {
+            width: 12px;
+            height: 12px;
+            background: #10b981;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+            margin-left: 12px;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        /* Map Container */
+        .map-container {
+            margin: 16px 20px;
+            height: 50vh;
+            border-radius: 16px;
+            overflow: hidden;
+            border: 2px solid #fbbf24;
+            position: relative;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+
+        .map-overlay {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            z-index: 100;
+        }
+
+        .center-view-button {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            background: rgba(30, 58, 138, 0.9);
+            color: white;
+            border: 2px solid #fbbf24;
+            padding: 10px 15px;
+            border-radius: 25px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .center-view-button:hover {
+            background: rgba(30, 58, 138, 1);
+            transform: scale(1.05);
+        }
+
+        .center-view-button:active {
+            transform: scale(0.95);
+        }
+
+        /* Leader Controls */
+        .leader-controls {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+
+        .leader-toggle {
+            background: linear-gradient(135deg, #fbbf24, #f59e0b);
+            color: #1e3a8a;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 25px;
+            font-weight: 700;
+            font-size: 0.9rem;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(251, 191, 36, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .leader-toggle:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(251, 191, 36, 0.4);
+        }
+
+        .leader-toggle.active {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+        }
+
+        .leader-panel {
+            background: rgba(30, 58, 138, 0.95);
+            backdrop-filter: blur(10px);
+            border: 2px solid #fbbf24;
+            border-radius: 15px;
+            padding: 15px;
+            margin-top: 10px;
+            min-width: 250px;
+            color: white;
+        }
+
+        .leader-panel h4 {
+            margin: 0 0 10px 0;
+            color: #fbbf24;
+            font-size: 1rem;
+        }
+
+        .leader-panel p {
+            margin: 0 0 15px 0;
+            font-size: 0.8rem;
+            opacity: 0.9;
+        }
+
+        .leader-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+
+        .leader-button {
+            background: rgba(251, 191, 36, 0.9);
+            color: #1e3a8a;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .leader-button:hover {
+            background: #fbbf24;
+            transform: scale(1.02);
+        }
+
+        .current-leader-stop {
+            font-size: 0.8rem;
+            color: #fbbf24;
+            font-weight: 600;
+        }
+
+        .leader-button.logout {
+            background: rgba(239, 68, 68, 0.9);
+            color: white;
+        }
+
+        .leader-button.logout:hover {
+            background: #ef4444;
+        }
+
+        /* Stop Selector */
+        .stop-selector {
+            margin-bottom: 15px;
+        }
+
+        .stop-selector label {
+            display: block;
+            margin-bottom: 5px;
+            color: #1e3a8a;
+            font-weight: bold;
+        }
+
+        .stop-dropdown {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 2px solid #3b82f6;
+            border-radius: 8px;
+            font-size: 14px;
+            background: white;
+            color: #1e3a8a;
+        }
+
+        .stop-dropdown:focus {
+            outline: none;
+            border-color: #1d4ed8;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        /* Debug Panel */
+        .debug-panel {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+        }
+
+        .debug-toggle {
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            border: 1px solid #fbbf24;
+            padding: 8px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            backdrop-filter: blur(10px);
+        }
+
+        .debug-content {
+            background: rgba(30, 58, 138, 0.95);
+            backdrop-filter: blur(10px);
+            border: 2px solid #fbbf24;
+            border-radius: 15px;
+            padding: 15px;
+            margin-top: 5px;
+            min-width: 280px;
+            color: white;
+            font-size: 0.8rem;
+        }
+
+        .debug-content h4 {
+            margin: 0 0 10px 0;
+            color: #fbbf24;
+        }
+
+        .debug-info div {
+            margin-bottom: 5px;
+            padding: 2px 0;
+        }
+
+        .location-legend {
+            position: absolute;
+            bottom: 12px;
+            left: 12px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            z-index: 100;
+            line-height: 1.3;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 2px 0;
+        }
+
+        .legend-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 6px;
+            border: 1px solid white;
+        }
+
+        /* Next Stop Section */
+        .next-stop {
+            margin: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 20px;
+            border: 1px solid rgba(251, 191, 36, 0.3);
+        }
+
+        .next-stop h2 {
+            color: #fbbf24;
+            font-size: 1.2rem;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+        }
+
+        .next-stop-icon {
+            width: 24px;
+            height: 24px;
+            background: #fbbf24;
+            border-radius: 50%;
+            margin-right: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #1e3a8a;
+            font-weight: 700;
+            font-size: 0.9rem;
+        }
+
+        .next-stop-details {
+            margin-left: 36px;
+        }
+
+        .next-stop-name {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .next-stop-description {
+            font-size: 0.9rem;
+            opacity: 0.9;
+            line-height: 1.4;
+        }
+
+        .eta {
+            background: rgba(16, 185, 129, 0.2);
+            color: #10b981;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            margin-top: 12px;
+            display: inline-block;
+        }
+
+        /* Route Progress */
+        .route-progress {
+            margin: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 20px;
+        }
+
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .progress-header h3 {
+            color: #fbbf24;
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        .progress-stats {
+            font-size: 1rem;
+            opacity: 0.9;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+        }
+
+        .progress-bar-container {
+            background: rgba(0, 0, 0, 0.3);
+            height: 10px;
+            border-radius: 5px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        .progress-bar {
+            background: linear-gradient(90deg, #10b981 0%, #fbbf24 100%);
+            height: 100%;
+            transition: width 0.5s ease;
+            border-radius: 5px;
+        }
+
+        /* Stops List */
+        .stops-list {
+            max-height: 200px;
+            overflow-y: auto;
+            overflow-x: hidden; /* Prevent horizontal scrolling */
+        }
+
+        .stop-item {
+            display: flex;
+            align-items: center;
+            padding: 16px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            word-wrap: break-word; /* Prevent text overflow */
+            overflow: hidden; /* Prevent content overflow */
+        }
+
+        .stop-item:hover {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding-left: 8px;
+            margin: 0 -8px;
+        }
+
+        .stop-item.completed {
+            opacity: 0.6;
+        }
+
+        .stop-item.current {
+            background: rgba(251, 191, 36, 0.2);
+            border-radius: 8px;
+            padding-left: 8px;
+            margin: 0 -8px;
+        }
+
+        .stop-number {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 0.9rem;
+            margin-right: 16px;
+            border: 2px solid transparent;
+            flex-shrink: 0;
+        }
+
+        .stop-item.completed .stop-number {
+            background: #10b981;
+            color: white;
+        }
+
+        .stop-item.current .stop-number {
+            background: #fbbf24;
+            color: #1e3a8a;
+            border-color: #fbbf24;
+            animation: pulse 2s infinite;
+        }
+
+        .stop-info {
+            flex: 1;
+            min-width: 0; /* Allow flex item to shrink below content size */
+            overflow: hidden; /* Prevent overflow */
+        }
+
+        .stop-info h4 {
+            font-size: 1.1rem;
+            font-weight: 500;
+            margin-bottom: 6px;
+            line-height: 1.3;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
+
+        .stop-info p {
+            font-size: 0.85rem;
+            opacity: 0.8;
+            line-height: 1.4;
+            margin-bottom: 4px;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
+
+        .stop-info small {
+            font-size: 0.75rem;
+            opacity: 0.7;
+            font-style: italic;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
+
+        /* Loading States */
+        .loading {
+            text-align: center;
+            padding: 40px 20px;
+            opacity: 0.7;
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(251, 191, 36, 0.3);
+            border-top: 3px solid #fbbf24;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Testing Controls */
+        .testing-controls {
+            position: fixed;
+            bottom: 60px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 15px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            z-index: 1001;
+            border: 2px solid #fbbf24;
+            min-width: 200px;
+        }
+
+        .testing-controls h4 {
+            color: #fbbf24;
+            margin-bottom: 10px;
+            font-size: 0.9rem;
+        }
+
+        .role-selector {
+            margin-bottom: 15px;
+        }
+
+        .role-selector label {
+            display: block;
+            margin: 5px 0;
+            cursor: pointer;
+        }
+
+        .role-selector input[type="radio"] {
+            margin-right: 8px;
+        }
+
+        .test-button {
+            background: #fbbf24;
+            color: #1e3a8a;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            margin: 3px;
+            font-weight: 500;
+        }
+
+        .test-button:hover {
+            background: #f59e0b;
+        }
+
+        .controls-toggle {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #fbbf24;
+            color: #1e3a8a;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: 600;
+            z-index: 1002;
+        }
+
+        /* Error states */
+        .error {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid #ef4444;
+            color: #fecaca;
+            padding: 16px;
+            border-radius: 12px;
+            margin: 16px 20px;
+            text-align: center;
+        }
+
+        /* Mobile optimizations */
+        @media (max-width: 480px) {
+            .header {
+                padding: 12px 16px;
+            }
+            
+            .header h1 {
+                font-size: 1.2rem;
+            }
+            
+            .status-bar,
+            .next-stop,
+            .route-progress {
+                margin: 12px 16px;
+                padding: 16px;
+            }
+            
+            .map-container {
+                margin: 12px 16px;
+                height: 45vh;
+            }
+        }
+
+        /* Accessibility improvements */
+        @media (prefers-reduced-motion: reduce) {
+            .live-indicator,
+            .progress-bar,
+            .stop-item {
+                animation: none;
+                transition: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-logo">
+            <img src="images/Zohran_for_Mayor_logo.svg.png" alt="Victory Walk Logo">
+            <h1>Victory Walk Route and Tracker</h1>
+        </div>
+        <p>Follow the journey in real-time</p>
+    </header>
+
+    <!-- Current Status -->
+    <div class="status-bar">
+        <div class="current-location">
+            <h3>Current Location</h3>
+            <p id="current-status">Initializing GPS...</p>
+        </div>
+        <div class="live-indicator" id="live-indicator"></div>
+    </div>
+
+    <!-- Map -->
+    <div class="map-container">
+        <div id="map"></div>
+        <button class="center-view-button" onclick="centerOnPositions()" title="Center view on your location and leader">
+            🎯 Center View
+        </button>
+        <div class="map-overlay" id="map-overlay">
+            <span id="zoom-level">Zoom: -</span>
+            <div id="route-status" style="margin-top: 5px; font-size: 0.7rem; color: #fbbf24;"></div>
+        </div>
+        <div class="location-legend">
+            <div class="legend-item">
+                <div class="legend-dot" style="background: #3b82f6;"></div>
+                <span>Your Location</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-dot" style="background: #fbbf24;"></div>
+                <span>Ayesha (A)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-dot" style="background: #fbbf24;"></div>
+                <span>Priya (P)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-dot" style="background: #fbbf24;"></div>
+                <span>Aly (Y)</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Next Stop Information -->
+    <div class="next-stop">
+        <h2>
+            <div class="next-stop-icon" id="next-stop-number">1</div>
+            Next Stop
+        </h2>
+        <div class="next-stop-details">
+            <div class="next-stop-name" id="next-stop-name">Loading...</div>
+            <div class="next-stop-description" id="next-stop-description">Preparing route information...</div>
+            <div class="eta" id="next-stop-eta">ETA: Calculating...</div>
+        </div>
+    </div>
+
+    <!-- Route Progress -->
+    <div class="route-progress">
+        <div class="progress-header">
+            <h3>Route Progress</h3>
+            <div class="progress-stats">
+                <span id="progress-percentage">0%</span> • 
+                <span id="stops-completed">0/0</span> stops
+            </div>
+        </div>
+        
+        <div class="progress-bar-container">
+            <div class="progress-bar" id="progress-bar" style="width: 0%"></div>
+        </div>
+
+        <div class="stops-list" id="stops-list">
+            <div class="loading">
+                <div class="loading-spinner"></div>
+                <p>Loading route stops...</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="bottom-spacer"></div>
+
+    <!-- Leader Controls -->
+    <div class="leader-controls">
+        <button class="leader-toggle" onclick="promptForLeaderAccess()" id="leader-toggle">
+            👑 Walk Leader Access
+        </button>
+        
+        <div class="leader-panel" id="leader-panel" style="display: none;">
+            <h4>� Leader Controls</h4>
+            <p>Your GPS position is now controlling the leader marker</p>
+            
+            <div class="leader-actions">
+                <div class="stop-selector">
+                    <label for="stop-select">Choose Next Stop:</label>
+                    <select id="stop-select" class="stop-dropdown">
+                        <!-- Options will be populated by JavaScript -->
+                    </select>
+                    <button class="leader-button" onclick="advanceToSelectedStop()">
+                        ➡️ Go to Selected Stop
+                    </button>
+                </div>
+                <button class="leader-button" onclick="announceCurrentStop()">
+                    📢 Announce Current Stop
+                </button>
+            </div>
+            
+            <div class="current-leader-stop">
+                Current Stop: <span id="leader-current-stop">Astoria Park</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Location Debug Panel -->
+    <div class="debug-panel" id="debug-panel">
+        <button class="debug-toggle" onclick="toggleDebugPanel()">📍</button>
+        <div class="debug-content" id="debug-content" style="display: none;">
+            <h4>📍 Location Status</h4>
+            <div class="debug-info">
+                <div><strong>Your GPS:</strong> <span id="debug-user-location">Getting location...</span></div>
+                <div><strong>Leader Position:</strong> <span id="debug-leader-location">Not set</span></div>
+                <div><strong>Location Accuracy:</strong> <span id="debug-accuracy">-</span></div>
+                <div><strong>Last Update:</strong> <span id="debug-timestamp">-</span></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configuration for the route
+        const ROUTE_CONFIG = {
+            // Replace with your Google Maps API key
+            GOOGLE_MAPS_API_KEY: 'AIzaSyACrG4TrchvhgYvDrNA8d1sUqgUsn8GzQM',
+            
+            // Route data - customize this for your specific route
+            route: [
+                { lat: 40.7785404, lng: -73.9254085, name: "Astoria Park", description: "Starting Point - The victory walk begins where community and movement meet, overlooking the East River with the skyline ahead and a new chapter for New York in sight." },
+                { lat: 40.7579029, lng: -73.9347746, name: "Little Flower Café", description: "First Stop - A cozy neighborhood stop beloved by Mayor-elect Zohran Mamdani, where friends and supporters have gathered over countless cups of coffee and conversation." },
+                { lat: 40.761001, lng: -73.9661608, name: "Queensboro Bridge", description: "Second Stop - A brief pause beneath the bridge's span—a moment to take in the view and reflect on how far this movement has come." },
+                { lat: 40.7358275, lng: -73.9930964, name: "Union Square Park", description: "Mid-Point Stop - The beating heart of New York's history of labor, protest, and progress—honoring the generations who organized for a fairer city." },
+                { lat: 40.7138411, lng: -73.9914043, name: "DSA HQ", description: "Fourth Stop - A symbolic stop recognizing the organizing power and solidarity that helped transform vision into victory." },
+                { lat: 40.7127784, lng: -74.0109299, name: "City Hall", description: "Final Stop - The walk concludes where leadership begins—at the steps of City Hall, where Mayor Mamdani will take office on January 1st, carrying the hopes of a people-powered New York." }
+            ],
+            
+            // Route styling
+            routeStyle: {
+                strokeColor: '#fbbf24',
+                strokeOpacity: 0.8,
+                strokeWeight: 4
+            },
+            
+            // Update intervals
+            locationUpdateInterval: 5000, // 5 seconds
+            routeCheckInterval: 30000      // 30 seconds
+        };
+
+        class ZohranRouteTracker {
+            constructor() {
+                this.map = null;
+                this.directionsService = null;
+                this.directionsRenderer = null;
+                this.currentLocationMarker = null;
+                this.leaderLocationMarker = null;
+                this.routePath = null;
+                this.stopMarkers = [];
+                this.currentPosition = null;
+                this.leaderPosition = null;
+                this.currentStopIndex = 0;
+                this.watchId = null;
+                this.leaderWatchId = null; // Separate GPS tracking for leader mode
+                
+                // Multi-leader system properties
+                this.isLeaderMode = false;
+                this.currentLeaderType = null; // Which leader type this device is
+                this.leaderStopIndex = 0; // Leader's current target stop
+                this.leaderMarkers = {}; // Track markers for each leader
+                
+                // Leader configuration with passwords and colors
+                this.leaderTypes = {
+                    leader1: {
+                        password: "team2025", 
+                        name: "Ayesha",
+                        color: "#fbbf24", // Yellow
+                        icon: "A"
+                    },
+                    leader2: {
+                        password: "walk2025",
+                        name: "Priya", 
+                        color: "#fbbf24", // Yellow
+                        icon: "P"
+                    },
+                    leader3: {
+                        password: "victory2025",
+                        name: "Aly",
+                        color: "#fbbf24", // Yellow
+                        icon: "Y"
+                    }
+                };
+                
+                // Local storage-based multi-user simulation
+                this.sessionId = 'victory-walk-' + Date.now(); // Unique session ID
+                this.storageCheckInterval = null;
+                
+                // Throttling for leader position broadcasts
+                this.lastBroadcastTime = 0;
+                this.broadcastThrottle = 5000; // Only broadcast every 5 seconds (reduced server load)
+                this.lastBroadcastPosition = null;
+                this.minDistanceThreshold = 0.005; // Only broadcast if moved 5+ meters (in km)
+                
+                this.init();
+            }
+
+            async init() {
+                try {
+                    await this.loadGoogleMaps();
+                    this.initializeMap();
+                    this.createRoute();
+                    this.startLocationTracking();
+                    this.setupLocalStorageListeners(); // Replace Firebase with localStorage
+                    this.updateUI();
+                    
+                    console.log('� Victory Walk app initialized with local storage multi-user simulation');
+                } catch (error) {
+                    this.showError('Failed to initialize route tracker: ' + error.message);
+                }
+            }
+
+            setupLocalStorageListeners() {
+                console.log('🔧 Setting up localStorage listeners for leader tracking');
+                
+                // Check for leader updates every 2 seconds via HTTP (followers only)
+                this.storageCheckInterval = setInterval(() => {
+                    this.checkForLeaderUpdatesHTTP();
+                }, 2000);
+                
+                // Listen for storage events (works across tabs/windows)
+                window.addEventListener('storage', (e) => {
+                    if (e.key === 'victoryWalkLeader' && !this.isLeaderMode) {
+                        console.log('📡 Received leader position update from another window');
+                        this.handleLeaderUpdate(e.newValue);
+                    }
+                });
+            }
+
+            stopFollowerPolling() {
+                if (this.storageCheckInterval) {
+                    console.log('🛑 Stopping follower polling - now leader');
+                    clearInterval(this.storageCheckInterval);
+                    this.storageCheckInterval = null;
+                }
+            }
+
+            startFollowerPolling() {
+                if (!this.storageCheckInterval) {
+                    console.log('🔄 Starting follower polling - no longer leader');
+                    this.storageCheckInterval = setInterval(() => {
+                        this.checkForLeaderUpdatesHTTP();
+                    }, 5000); // Increased from 2s to 5s to reduce server load
+                }
+            }
+
+            async checkForLeaderUpdatesHTTP() {
+                if (this.isLeaderMode) {
+                    // Leaders should NOT poll for updates - they broadcast instead
+                    return;
+                }
+                
+                try {
+                    const url = `/api/leader-data?t=${Date.now()}`;
+                    
+                    const response = await fetch(url, {
+                        method: 'GET',
+                        headers: {
+                            'Cache-Control': 'no-cache',
+                            'Pragma': 'no-cache'
+                        },
+                        cache: 'no-cache'
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    
+                    const leaderData = await response.json();
+                    
+                    if (leaderData.hasLeader) {
+                        // Check for new multi-leader structure
+                        if (leaderData.leaders) {
+                            // Only update if this is newer data
+                            if (leaderData.lastUpdate > (this.lastLeaderUpdate || 0)) {
+                                console.log('📡 Follower received newer multi-leader data:', leaderData.leaders);
+                                this.updateMultipleLeaders(leaderData);
+                                this.lastLeaderUpdate = leaderData.lastUpdate;
+                            }
+                        } else if (leaderData.leaderPosition) {
+                            // Legacy single leader support
+                            if (leaderData.lastUpdate > (this.lastLeaderUpdate || 0)) {
+                                console.log('📡 Follower received newer leader data:', leaderData.leaderPosition);
+                                this.updateRemoteLeaderPosition(leaderData.leaderPosition, leaderData);
+                                this.lastLeaderUpdate = leaderData.lastUpdate;
+                            }
+                        }
+                    }
+                } catch (error) {
+                    console.warn('Could not fetch leader data:', error);
+                    
+                    // Fallback: Try XMLHttpRequest for better error details
+                    try {
+                        const xhr = new XMLHttpRequest();
+                        xhr.open('GET', `/leader-data.json?t=${Date.now()}`, true);
+                        xhr.onload = () => {
+                            if (xhr.status === 200) {
+                                const leaderData = JSON.parse(xhr.responseText);
+                                if (leaderData.hasLeader && leaderData.leaderPosition) {
+                                    if (leaderData.lastUpdate > (this.lastLeaderUpdate || 0)) {
+                                        this.updateRemoteLeaderPosition(leaderData.leaderPosition, leaderData);
+                                        this.lastLeaderUpdate = leaderData.lastUpdate;
+                                    }
+                                }
+                            }
+                        };
+                        xhr.send();
+                    } catch (fallbackError) {
+                        console.warn('Fallback also failed:', fallbackError);
+                    }
+                }
+            }
+
+            updateRemoteLeaderPosition(leaderData, fullLeaderData = null) {
+                if (!leaderData.lat || !leaderData.lng) {
+                    console.warn('❌ Invalid leader data - missing lat/lng:', leaderData);
+                    return;
+                }
+                
+                this.leaderPosition = {
+                    lat: leaderData.lat,
+                    lng: leaderData.lng
+                };
+                
+                // Update stop index if provided by leader
+                if (fullLeaderData && typeof fullLeaderData.currentStopIndex === 'number') {
+                    this.currentStopIndex = fullLeaderData.currentStopIndex;
+                    console.log('📍 Follower updated to stop index:', this.currentStopIndex);
+                    
+                    // Update marker colors to reflect new current stop
+                    this.updateMarkerIcons();
+                    
+                    // Update progress displays
+                    this.updateRouteProgress();
+                    this.updateCurrentStatus();
+                }
+                
+                // Create or update the leader marker for followers (legacy single leader)
+                const leaderType = leaderData.leaderType || 'leader1';
+                const leaderConfig = this.leaderTypes[leaderType];
+                
+                if (this.leaderLocationMarker) {
+                    this.leaderLocationMarker.setPosition(this.leaderPosition);
+                } else {
+                    console.log(`🟡 Creating ${leaderType} marker for follower`);
+                    this.leaderLocationMarker = new google.maps.Marker({
+                        position: this.leaderPosition,
+                        map: this.map,
+                        title: `${leaderConfig.name} - Victory Walk Leader`,
+                        icon: {
+                            url: `data:image/svg+xml,${encodeURIComponent(`
+                                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28">
+                                    <circle cx="14" cy="14" r="12" fill="${leaderConfig.color}" stroke="${leaderConfig.color}" stroke-width="2"/>
+                                    <text x="14" y="18" text-anchor="middle" fill="#1e3a8a" font-family="Arial" font-size="8" font-weight="bold">${leaderConfig.icon}</text>
+                                </svg>
+                            `)}`,
+                            scaledSize: new google.maps.Size(28, 28),
+                            anchor: new google.maps.Point(14, 14)
+                        },
+                        zIndex: 1000
+                    });
+                }
+                
+                // Update debug info
+                const timestamp = new Date(leaderData.timestamp || Date.now()).toLocaleTimeString();
+                document.getElementById('debug-leader-location').textContent = 
+                    `${leaderData.lat.toFixed(6)}, ${leaderData.lng.toFixed(6)}`;
+                
+                // Update status for followers
+                const statusElement = document.getElementById('current-status');
+                const nextStopElement = document.getElementById('next-stop');
+                
+                if (!this.isLeaderMode) {
+                    statusElement.textContent = '👥 Following Victory Walk Leader';
+                    statusElement.className = 'current-status success';
+                    nextStopElement.textContent = `Following: Zohran Mamdani`;
+                }
+                
+                console.log('🟡 Leader marker updated for followers');
+            }
+
+            // Multi-leader system methods
+            updateMultipleLeaders(leaderData) {
+                console.log('👥 Updating multiple leaders:', leaderData.leaders);
+                
+                // Update stop index from any active leader
+                if (typeof leaderData.currentStopIndex === 'number') {
+                    this.currentStopIndex = leaderData.currentStopIndex;
+                    this.updateMarkerIcons();
+                    this.updateRouteProgress();
+                    this.updateCurrentStatus();
+                }
+                
+                // Create or update markers for each active leader
+                for (const [leaderType, leaderInfo] of Object.entries(leaderData.leaders || {})) {
+                    if (!leaderInfo.position || !leaderInfo.position.lat || !leaderInfo.position.lng) {
+                        continue;
+                    }
+                    
+                    const leaderConfig = this.leaderTypes[leaderType];
+                    if (!leaderConfig) continue;
+                    
+                    const position = {
+                        lat: leaderInfo.position.lat,
+                        lng: leaderInfo.position.lng
+                    };
+                    
+                    // Create or update marker for this leader
+                    if (this.leaderMarkers[leaderType]) {
+                        this.leaderMarkers[leaderType].setPosition(position);
+                    } else {
+                        console.log(`🟡 Creating ${leaderType} marker for follower`);
+                        this.leaderMarkers[leaderType] = new google.maps.Marker({
+                            position: position,
+                            map: this.map,
+                            title: `${leaderConfig.name} - Victory Walk Leader`,
+                            icon: {
+                                url: `data:image/svg+xml,${encodeURIComponent(`
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28">
+                                        <circle cx="14" cy="14" r="12" fill="${leaderConfig.color}" stroke="${leaderConfig.color}" stroke-width="2"/>
+                                        <text x="14" y="18" text-anchor="middle" fill="#1e3a8a" font-family="Arial" font-size="8" font-weight="bold">${leaderConfig.icon}</text>
+                                    </svg>
+                                `)}`,
+                                scaledSize: new google.maps.Size(28, 28),
+                                anchor: new google.maps.Point(14, 14)
+                            },
+                            zIndex: 1000
+                        });
+                    }
+                }
+                
+                // Update status for followers
+                if (!this.isLeaderMode) {
+                    const statusElement = document.getElementById('current-status');
+                    const nextStopElement = document.getElementById('next-stop');
+                    
+                    const activeLeaders = Object.keys(leaderData.leaders || {}).length;
+                    statusElement.textContent = `👥 Following ${activeLeaders} Victory Walk Leader(s)`;
+                    statusElement.className = 'current-status success';
+                    
+                    const leaderNames = Object.entries(leaderData.leaders || {})
+                        .map(([type, info]) => this.leaderTypes[type]?.name)
+                        .filter(Boolean)
+                        .join(', ');
+                    nextStopElement.textContent = `Following: ${leaderNames}`;
+                }
+            }
+
+            async removeLeaderFromServer() {
+                if (!this.currentLeaderType) return;
+                
+                try {
+                    // Send a request to remove this leader type from the server
+                    const response = await fetch('/api/leader/remove', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            leaderType: this.currentLeaderType,
+                            action: 'remove'
+                        })
+                    });
+                    
+                    if (response.ok) {
+                        console.log(`📡 Removed ${this.currentLeaderType} from server`);
+                    }
+                } catch (error) {
+                    console.warn('Error removing leader from server:', error);
+                }
+            }
+
+            cleanupInactiveLeaders(activeLeaderTypes) {
+                // Remove markers for leaders that are no longer active
+                for (const [leaderType, marker] of Object.entries(this.leaderMarkers)) {
+                    if (!activeLeaderTypes.includes(leaderType)) {
+                        marker.setMap(null);
+                        delete this.leaderMarkers[leaderType];
+                        console.log(`🗑️ Removed inactive ${leaderType} marker`);
+                    }
+                }
+            }
+
+            handleLeaderUpdate(newValue) {
+                if (!newValue) return;
+                try {
+                    const leaderData = JSON.parse(newValue);
+                    this.updateRemoteLeaderPosition(leaderData);
+                } catch (e) {
+                    console.warn('Error handling leader update:', e);
+                }
+            }
+
+            loadGoogleMaps() {
+                return new Promise((resolve, reject) => {
+                    if (window.google && window.google.maps) {
+                        resolve();
+                        return;
+                    }
+
+                    const script = document.createElement('script');
+                    script.src = `https://maps.googleapis.com/maps/api/js?key=${ROUTE_CONFIG.GOOGLE_MAPS_API_KEY}&libraries=geometry,directions`;
+                    script.async = true;
+                    script.onload = resolve;
+                    script.onerror = () => reject(new Error('Failed to load Google Maps'));
+                    document.head.appendChild(script);
+                });
+            }
+
+            initializeMap() {
+                const mapOptions = {
+                    zoom: 13,
+                    center: ROUTE_CONFIG.route[0],
+                    styles: [
+                        {
+                            featureType: 'all',
+                            elementType: 'geometry.fill',
+                            stylers: [{ color: '#1e3a8a' }]
+                        },
+                        {
+                            featureType: 'water',
+                            elementType: 'geometry',
+                            stylers: [{ color: '#0ea5e9' }]
+                        }
+                    ],
+                    disableDefaultUI: true,
+                    zoomControl: true,
+                    gestureHandling: 'greedy'
+                };
+
+                this.map = new google.maps.Map(document.getElementById('map'), mapOptions);
+                
+                // Initialize Directions Service and Renderer
+                this.directionsService = new google.maps.DirectionsService();
+                this.directionsRenderer = new google.maps.DirectionsRenderer({
+                    suppressMarkers: true, // We'll use custom markers
+                    polylineOptions: {
+                        strokeColor: '#fbbf24',
+                        strokeOpacity: 0.8,
+                        strokeWeight: 4
+                    }
+                });
+                this.directionsRenderer.setMap(this.map);
+                
+                // Update zoom level display
+                this.map.addListener('zoom_changed', () => {
+                    document.getElementById('zoom-level').textContent = `Zoom: ${this.map.getZoom()}`;
+                });
+            }
+
+            initializeTestingControls() {
+                // Set initial testing role
+                this.setTestingRole('user');
+                
+                // Make sure testing controls are hidden initially
+                const controls = document.getElementById('testing-controls');
+                if (controls) {
+                    controls.style.display = 'none';
+                }
+                
+                console.log('Testing controls initialized');
+            }
+
+            async createRoute() {
+                const statusElement = document.getElementById('route-status');
+                
+                try {
+                    statusElement.textContent = 'Calculating walking route...';
+                    
+                    // Create walking route using Directions API
+                    await this.createWalkingRoute();
+                    statusElement.textContent = 'Walking route loaded';
+                    
+                    // Hide status after 2 seconds
+                    setTimeout(() => {
+                        statusElement.textContent = '';
+                    }, 2000);
+                    
+                } catch (error) {
+                    console.error('Error creating route:', error);
+                    statusElement.textContent = 'Using simplified route';
+                    
+                    // Fallback to simple polyline if Directions API fails
+                    this.createSimpleRoute();
+                    
+                    // Hide status after 3 seconds
+                    setTimeout(() => {
+                        statusElement.textContent = '';
+                    }, 3000);
+                }
+
+                // Create stop markers (regardless of route type)
+                ROUTE_CONFIG.route.forEach((stop, index) => {
+                    const marker = new google.maps.Marker({
+                        position: { lat: stop.lat, lng: stop.lng },
+                        map: this.map,
+                        title: stop.name,
+                        icon: {
+                            url: index === this.currentStopIndex ? 'images/ZohranPin-Yellow.png' : 'images/ZohranPin-Blue.png',
+                            scaledSize: new google.maps.Size(40, 40),
+                            anchor: new google.maps.Point(20, 40)
+                        }
+                    });
+
+                    // Add click listener for stop details
+                    marker.addListener('click', () => {
+                        this.showStopDetails(index);
+                    });
+
+                    this.stopMarkers.push(marker);
+                });
+
+                // Fit map to show entire route
+                const bounds = new google.maps.LatLngBounds();
+                ROUTE_CONFIG.route.forEach(stop => {
+                    bounds.extend(new google.maps.LatLng(stop.lat, stop.lng));
+                });
+                this.map.fitBounds(bounds, { padding: 50 });
+            }
+
+            async createWalkingRoute() {
+                const route = ROUTE_CONFIG.route;
+                
+                // Create waypoints (all stops except first and last)
+                const waypoints = route.slice(1, -1).map(stop => ({
+                    location: new google.maps.LatLng(stop.lat, stop.lng),
+                    stopover: true
+                }));
+
+                const request = {
+                    origin: new google.maps.LatLng(route[0].lat, route[0].lng),
+                    destination: new google.maps.LatLng(route[route.length - 1].lat, route[route.length - 1].lng),
+                    waypoints: waypoints,
+                    travelMode: google.maps.TravelMode.WALKING,
+                    optimizeWaypoints: false // Keep original order
+                };
+
+                return new Promise((resolve, reject) => {
+                    this.directionsService.route(request, (result, status) => {
+                        if (status === 'OK') {
+                            this.directionsRenderer.setDirections(result);
+                            resolve(result);
+                        } else {
+                            console.warn('Directions request failed:', status);
+                            reject(new Error(`Directions request failed: ${status}`));
+                        }
+                    });
+                });
+            }
+
+            createSimpleRoute() {
+                // Fallback: Create simple polyline connecting points
+                const routePath = ROUTE_CONFIG.route.map(stop => ({ lat: stop.lat, lng: stop.lng }));
+                
+                this.routePath = new google.maps.Polyline({
+                    path: routePath,
+                    ...ROUTE_CONFIG.routeStyle,
+                    map: this.map
+                });
+            }
+
+            startLocationTracking() {
+                if (!navigator.geolocation) {
+                    this.showError('Geolocation is not supported by this browser');
+                    return;
+                }
+
+                const options = {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 1000
+                };
+
+                // First get an immediate position to show the user's location right away
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        console.log('Got initial GPS position:', position);
+                        this.updatePosition(position);
+                    },
+                    (error) => {
+                        console.warn('Could not get initial GPS position:', error);
+                        this.handleLocationError(error);
+                    },
+                    options
+                );
+
+                // Then start continuous tracking
+                this.watchId = navigator.geolocation.watchPosition(
+                    (position) => this.updatePosition(position),
+                    (error) => this.handleLocationError(error),
+                    options
+                );
+
+                // Set up periodic updates
+                setInterval(() => this.updateRouteProgress(), ROUTE_CONFIG.routeCheckInterval);
+                
+                // Simulate leader position updates (in real app, this would come from server/API)
+                this.startLeaderTracking();
+            }
+
+            stopLocationWatching() {
+                if (this.watchId) {
+                    navigator.geolocation.clearWatch(this.watchId);
+                    this.watchId = null;
+                }
+            }
+
+            // Testing functions
+            toggleTestingControls() {
+                this.testingMode = !this.testingMode;
+                const controls = document.getElementById('testing-controls');
+                controls.style.display = this.testingMode ? 'block' : 'none';
+                
+                console.log(`Testing mode ${this.testingMode ? 'ENABLED' : 'DISABLED'}`);
+                
+                if (this.testingMode) {
+                    this.stopLocationWatching();
+                    console.log('Real GPS tracking stopped');
+                } else {
+                    this.startLocationTracking();
+                    console.log('Real GPS tracking resumed');
+                }
+                
+                // Update the toggle button text
+                const toggleButton = document.querySelector('button[onclick="toggleTestingControls()"]');
+                if (toggleButton) {
+                    toggleButton.textContent = this.testingMode ? 'Exit Testing Mode' : 'Toggle Testing Controls';
+                }
+            }
+
+            setTestingRole(role) {
+                this.testingRole = role;
+                const currentRoleElement = document.getElementById('current-role');
+                if (currentRoleElement) {
+                    currentRoleElement.textContent = role;
+                }
+                console.log(`Testing role set to: ${role}`);
+                
+                // Show visual feedback
+                const userRadio = document.querySelector('input[value="user"]');
+                const leaderRadio = document.querySelector('input[value="leader"]');
+                
+                if (role === 'user' && userRadio) {
+                    userRadio.checked = true;
+                } else if (role === 'leader' && leaderRadio) {
+                    leaderRadio.checked = true;
+                }
+            }
+
+            simulateMovement(direction) {
+                if (!this.testingMode) {
+                    console.log('Testing mode is not enabled');
+                    return;
+                }
+
+                let targetPosition = null;
+                console.log(`Simulating movement: ${direction}, current test stop index: ${this.testStopIndex}`);
+
+                switch(direction) {
+                    case 'next':
+                        if (this.testStopIndex < ROUTE_CONFIG.route.length - 1) {
+                            this.testStopIndex++;
+                        }
+                        targetPosition = ROUTE_CONFIG.route[this.testStopIndex];
+                        break;
+                    
+                    case 'prev':
+                        if (this.testStopIndex > 0) {
+                            this.testStopIndex--;
+                        }
+                        targetPosition = ROUTE_CONFIG.route[this.testStopIndex];
+                        break;
+                    
+                    case 'random':
+                        // Generate random position near the route
+                        const randomIndex = Math.floor(Math.random() * ROUTE_CONFIG.route.length);
+                        const baseStop = ROUTE_CONFIG.route[randomIndex];
+                        const offset = 0.001; // Small offset for testing
+                        targetPosition = {
+                            lat: baseStop.lat + (Math.random() - 0.5) * offset,
+                            lng: baseStop.lng + (Math.random() - 0.5) * offset
+                        };
+                        break;
+                    
+                    case 'reset':
+                        this.testStopIndex = 0;
+                        targetPosition = ROUTE_CONFIG.route[0];
+                        break;
+                }
+
+                if (targetPosition) {
+                    console.log(`Moving ${this.testingRole} to:`, targetPosition);
+                    
+                    // Simulate position update based on role
+                    const mockPosition = {
+                        coords: {
+                            latitude: targetPosition.lat,
+                            longitude: targetPosition.lng,
+                            accuracy: 10
+                        },
+                        timestamp: Date.now()
+                    };
+
+                    if (this.testingRole === 'user') {
+                        this.updatePosition(mockPosition);
+                    } else if (this.testingRole === 'leader') {
+                        this.updateLeaderPosition(mockPosition);
+                    }
+                    
+                    console.log(`${this.testingRole} position updated successfully`);
+                } else {
+                    console.log('No target position found');
+                }
+            }
+
+            updatePosition(position) {
+                console.log('📍 updatePosition called - isLeaderMode:', this.isLeaderMode);
+                
+                this.currentPosition = {
+                    lat: position.coords.latitude,
+                    lng: position.coords.longitude,
+                    accuracy: position.coords.accuracy
+                };
+
+                // Update debug information
+                this.updateDebugInfo(position);
+
+                // Show user's blue dot only if NOT in leader mode
+                if (!this.isLeaderMode) {
+                    console.log('Not in leader mode - showing/updating blue marker');
+                    if (this.currentLocationMarker) {
+                        this.currentLocationMarker.setPosition(this.currentPosition);
+                        this.currentLocationMarker.setMap(this.map); // Ensure it's visible
+                    } else {
+                        console.log('Creating new blue marker for user location');
+                        this.currentLocationMarker = new google.maps.Marker({
+                            position: this.currentPosition,
+                            map: this.map,
+                            icon: {
+                                url: `data:image/svg+xml,${encodeURIComponent(`
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+                                        <circle cx="12" cy="12" r="10" fill="#3b82f6" stroke="white" stroke-width="3"/>
+                                        <circle cx="12" cy="12" r="4" fill="white"/>
+                                    </svg>
+                                `)}`,
+                                scaledSize: new google.maps.Size(24, 24),
+                                anchor: new google.maps.Point(12, 12)
+                            },
+                            title: 'Your Location',
+                            zIndex: 1001
+                        });
+                    }
+                } else {
+                    // If in leader mode, ensure no blue marker exists
+                    console.log('In leader mode - ensuring blue marker is gone');
+                    if (this.currentLocationMarker) {
+                        this.currentLocationMarker.setMap(null);
+                        this.currentLocationMarker = null;
+                        console.log('Blue marker removed');
+                    }
+                    // Note: Leader GPS tracking is handled separately by startLeaderGPSTracking()
+                }
+
+                this.updateCurrentStatus();
+                this.updateRouteProgress();
+            }
+
+            updateDebugInfo(position) {
+                if (!position || !position.coords) {
+                    console.log('Invalid position data for debug update');
+                    return;
+                }
+                
+                // Handle both formats: position.coords.latitude/longitude and position.coords.lat/lng
+                const lat = position.coords.latitude || position.coords.lat;
+                const lng = position.coords.longitude || position.coords.lng;
+                const accuracy = position.coords.accuracy;
+                
+                if (lat === undefined || lng === undefined) {
+                    console.log('Invalid coordinates in position data:', position.coords);
+                    return;
+                }
+                
+                const userLoc = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+                const accuracyText = accuracy ? `±${Math.round(accuracy)}m` : 'Unknown';
+                const timestamp = new Date().toLocaleTimeString();
+                
+                document.getElementById('debug-user-location').textContent = userLoc;
+                document.getElementById('debug-accuracy').textContent = accuracyText;
+                document.getElementById('debug-timestamp').textContent = timestamp;
+                
+                console.log('User GPS updated:', userLoc, 'Accuracy:', accuracyText);
+                
+                if (this.leaderPosition && typeof this.leaderPosition.lat === 'number' && typeof this.leaderPosition.lng === 'number') {
+                    const leaderLoc = `${this.leaderPosition.lat.toFixed(6)}, ${this.leaderPosition.lng.toFixed(6)}`;
+                    document.getElementById('debug-leader-location').textContent = leaderLoc;
+                } else {
+                    document.getElementById('debug-leader-location').textContent = 'Not set';
+                }
+            }
+
+            // updateLeaderPositionFromGPS function has been removed - leader position is now handled directly in startLeaderGPSTracking
+
+            updateLeaderPosition(position) {
+                this.leaderPosition = {
+                    lat: position.coords.latitude,
+                    lng: position.coords.longitude,
+                    accuracy: position.coords.accuracy
+                };
+
+                // Get current leader configuration
+                const leaderType = this.currentLeaderType || 'leader1';
+                const leaderConfig = this.leaderTypes[leaderType];
+
+                // Update or create leader location marker
+                if (this.leaderLocationMarker) {
+                    this.leaderLocationMarker.setPosition(this.leaderPosition);
+                } else {
+                    this.leaderLocationMarker = new google.maps.Marker({
+                        position: this.leaderPosition,
+                        map: this.map,
+                        icon: {
+                            url: `data:image/svg+xml,${encodeURIComponent(`
+                                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28">
+                                    <circle cx="14" cy="14" r="12" fill="${leaderConfig.color}" stroke="white" stroke-width="3"/>
+                                    <circle cx="14" cy="14" r="6" fill="white"/>
+                                    <text x="14" y="18" text-anchor="middle" fill="#1e3a8a" font-family="Arial" font-size="8" font-weight="bold">${leaderConfig.icon}</text>
+                                </svg>
+                            `)}`,
+                            scaledSize: new google.maps.Size(28, 28),
+                            anchor: new google.maps.Point(14, 14)
+                        },
+                        title: `Walk Leader (${leaderConfig.name})`,
+                        zIndex: 999
+                    });
+                }
+
+                this.updateCurrentStatus();
+                // Update route progress based on leader's new position
+                this.updateRouteProgress();
+            }
+
+            startLeaderTracking() {
+                // Clean up any existing leader markers first
+                this.cleanupLeaderMarker();
+                
+                if (this.isLeaderMode) {
+                    // Leader: Initialize at Astoria Park with GPS tracking
+                    console.log('🟡 Leader mode: Starting at Astoria Park with GPS tracking');
+                    this.initializeLeaderAtAstoriaPark();
+                    
+                    // No automatic progression - leader controls manually
+                    console.log('👑 Manual leader control mode - no automatic progression');
+                } else {
+                    // Follower: Don't initialize leader marker - wait for real leader updates
+                    console.log('👥 Follower mode: Waiting for leader position updates via server');
+                    // The follower will get the leader marker when checkForLeaderUpdatesHTTP() runs
+                }
+            }
+
+            // Automatic progression methods removed - leader now has full manual control
+
+            cleanupLeaderMarker() {
+                if (this.leaderLocationMarker) {
+                    this.leaderLocationMarker.setMap(null);
+                    this.leaderLocationMarker = null;
+                }
+            }
+
+            initializeLeaderAtAstoriaPark() {
+                // Start leader at Astoria Park (index 0)
+                const astoriaPark = ROUTE_CONFIG.route[0];
+                
+                console.log(`Initializing leader at ${astoriaPark.name}`);
+                
+                // Create leader position at Astoria Park
+                this.leaderPosition = {
+                    lat: astoriaPark.lat,
+                    lng: astoriaPark.lng
+                };
+
+                // Get default leader configuration (fallback to leader1 if no leader is active)
+                const leaderType = this.currentLeaderType || 'leader1';
+                const leaderConfig = this.leaderTypes[leaderType];
+
+                // Create or update the leader marker at Astoria Park
+                if (this.leaderLocationMarker) {
+                    // If marker exists, just update position
+                    this.leaderLocationMarker.setPosition(this.leaderPosition);
+                    this.leaderLocationMarker.setTitle(`Walk Leader (${leaderConfig.name}) - Starting at Astoria Park`);
+                } else {
+                    // Create new marker only if none exists
+                    this.leaderLocationMarker = new google.maps.Marker({
+                        position: this.leaderPosition,
+                        map: this.map,
+                        icon: {
+                            url: `data:image/svg+xml,${encodeURIComponent(`
+                                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28">
+                                    <circle cx="14" cy="14" r="12" fill="${leaderConfig.color}" stroke="white" stroke-width="3"/>
+                                    <circle cx="14" cy="14" r="6" fill="white"/>
+                                    <text x="14" y="18" text-anchor="middle" fill="#1e3a8a" font-family="Arial" font-size="8" font-weight="bold">${leaderConfig.icon}</text>
+                                </svg>
+                            `)}`,
+                            scaledSize: new google.maps.Size(28, 28),
+                            anchor: new google.maps.Point(14, 14)
+                        },
+                        title: `Walk Leader (${leaderConfig.name}) - Starting at Astoria Park`,
+                        zIndex: 999
+                    });
+                }
+
+                // Update status and route progress based on leader starting position
+                this.updateCurrentStatus();
+                this.updateRouteProgress();
+            }
+
+            simulateLeaderPosition() {
+                // Position leader at the CURRENT stop (not ahead)
+                const leaderStopIndex = this.currentStopIndex;
+                const leaderStop = ROUTE_CONFIG.route[leaderStopIndex];
+                
+                console.log(`Leader simulation: moving to stop ${leaderStopIndex} (${leaderStop.name})`);
+                
+                // Add slight offset to show leader is moving around the stop area
+                const offset = 0.0005; // Smaller offset to stay closer to the stop
+                this.leaderPosition = {
+                    lat: leaderStop.lat + (Math.random() - 0.5) * offset,
+                    lng: leaderStop.lng + (Math.random() - 0.5) * offset
+                };
+
+                // Update or create leader marker
+                if (this.leaderLocationMarker) {
+                    this.leaderLocationMarker.setPosition(this.leaderPosition);
+                } else {
+                    this.leaderLocationMarker = new google.maps.Marker({
+                        position: this.leaderPosition,
+                        map: this.map,
+                        icon: {
+                            url: 'images/ZohranPin-Yellow.png',
+                            scaledSize: new google.maps.Size(40, 40),
+                            anchor: new google.maps.Point(20, 40)
+                        },
+                        title: 'Walk Leader (Zohran)',
+                        zIndex: 999,
+                        label: {
+                            text: 'L',
+                            color: '#000',
+                            fontSize: '14px',
+                            fontWeight: 'bold'
+                        }
+                    });
+                }
+            }
+
+            updateCurrentStatus() {
+                const statusEl = document.getElementById('current-status');
+                const indicator = document.getElementById('live-indicator');
+                
+                if (this.currentPosition) {
+                    const nearestStop = this.findNearestStop();
+                    const distance = this.calculateDistance(this.currentPosition, nearestStop.stop);
+                    
+                    let statusText = '';
+                    if (distance < 0.1) { // Within 100 meters
+                        statusText = `📍 You're at ${nearestStop.stop.name}`;
+                    } else {
+                        statusText = `📍 ${distance.toFixed(1)}km from ${nearestStop.stop.name}`;
+                    }
+                    
+                    // Add leader status for real-time group coordination
+                    if (this.leaderPosition) {
+                        const leaderDistance = this.calculateDistance(this.currentPosition, this.leaderPosition);
+                        const currentStop = ROUTE_CONFIG.route[this.currentStopIndex];
+                        
+                        if (leaderDistance < 0.05) { // Very close to leader (50m)
+                            statusText += ` • 👥 With the group at ${currentStop.name}`;
+                        } else if (leaderDistance < 0.2) { // Within 200m
+                            statusText += ` • 👑 Leader nearby (${Math.round(leaderDistance * 1000)}m)`;
+                        } else {
+                            statusText += ` • 👑 Catch up to leader: ${leaderDistance.toFixed(1)}km to ${currentStop.name}`;
+                        }
+                    }
+                    
+                    statusEl.textContent = statusText;
+                    indicator.style.background = '#10b981'; // Green when tracking
+                } else {
+                    statusEl.textContent = '📍 Getting your GPS location...';
+                    indicator.style.background = '#fbbf24'; // Yellow when searching
+                }
+            }
+
+            updateRouteProgress() {
+                // Route progress is driven by leader's actual position in real GPS mode
+                if (!this.leaderPosition) return;
+
+                // Update next stop information based on leader's current progress
+                this.updateNextStopInfo();
+                
+                // Update progress bar based on leader's actual progress through the route
+                const progress = ((this.currentStopIndex) / (ROUTE_CONFIG.route.length - 1)) * 100;
+                document.getElementById('progress-bar').style.width = `${Math.min(progress, 100)}%`;
+                document.getElementById('progress-percentage').textContent = `${Math.round(progress)}%`;
+                document.getElementById('stops-completed').textContent = `${this.currentStopIndex}/${ROUTE_CONFIG.route.length}`;
+
+                // Update stops list
+                this.updateStopsList();
+                
+                console.log(`Route progress: ${Math.round(progress)}% - Current stop: ${ROUTE_CONFIG.route[this.currentStopIndex].name}`);
+            }
+
+            updateNextStopInfo() {
+                const nextStopIndex = Math.min(this.currentStopIndex + 1, ROUTE_CONFIG.route.length - 1);
+                const nextStop = ROUTE_CONFIG.route[nextStopIndex];
+                
+                document.getElementById('next-stop-number').textContent = nextStopIndex + 1;
+                document.getElementById('next-stop-name').textContent = nextStop.name;
+                document.getElementById('next-stop-description').textContent = nextStop.description;
+                
+                // Show ETA based on USER's position to the next stop (where leader is heading)
+                if (this.currentPosition) {
+                    const distance = this.calculateDistance(this.currentPosition, nextStop);
+                    const eta = this.calculateETA(distance);
+                    document.getElementById('next-stop-eta').textContent = `ETA: ${eta}`;
+                } else {
+                    document.getElementById('next-stop-eta').textContent = 'ETA: Calculating...';
+                }
+            }
+
+            updateStopsList() {
+                const stopsList = document.getElementById('stops-list');
+                
+                stopsList.innerHTML = ROUTE_CONFIG.route.map((stop, index) => {
+                    let status = '';
+                    if (index < this.currentStopIndex) status = 'completed';
+                    else if (index === this.currentStopIndex) status = 'current';
+                    
+                    return `
+                        <div class="stop-item ${status}" onclick="tracker.showStopDetails(${index})">
+                            <div class="stop-number">${index + 1}</div>
+                            <div class="stop-info">
+                                <h4>${stop.name} 📍</h4>
+                                <p>${stop.description}</p>
+                                <small style="opacity: 0.7; font-style: italic;">Tap to open in maps</small>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            showStopDetails(index) {
+                const stop = ROUTE_CONFIG.route[index];
+                
+                // Create a more detailed modal-style alert with map options
+                const mapOptions = this.getMapOptions(stop.lat, stop.lng, stop.name);
+                
+                const message = `${stop.name}\n\n${stop.description}\n\n` +
+                               `📍 Coordinates: ${stop.lat.toFixed(6)}, ${stop.lng.toFixed(6)}\n\n` +
+                               `Choose an option:\n` +
+                               `• Press OK to see map options\n` +
+                               `• Press Cancel to close`;
+                
+                if (confirm(message)) {
+                    this.showMapOptions(stop);
+                }
+            }
+
+            showMapOptions(stop) {
+                const mapOptions = this.getMapOptions(stop.lat, stop.lng, stop.name);
+                
+                const optionsMessage = `📍 ${stop.name}\n\nOpen in your preferred map app:\n\n` +
+                                     `1. Google Maps\n` +
+                                     `2. Apple Maps\n` +
+                                     `3. Waze\n` +
+                                     `4. Copy coordinates\n\n` +
+                                     `Enter choice (1-4):`;
+                
+                const choice = prompt(optionsMessage);
+                
+                switch(choice) {
+                    case '1':
+                        window.open(mapOptions.google, '_blank');
+                        break;
+                    case '2':
+                        window.open(mapOptions.apple, '_blank');
+                        break;
+                    case '3':
+                        window.open(mapOptions.waze, '_blank');
+                        break;
+                    case '4':
+                        this.copyCoordinates(stop);
+                        break;
+                    default:
+                        if (choice !== null) {
+                            alert('Invalid choice. Please try again.');
+                        }
+                }
+            }
+
+            getMapOptions(lat, lng, name) {
+                const encodedName = encodeURIComponent(name);
+                const coords = `${lat},${lng}`;
+                
+                return {
+                    google: `https://www.google.com/maps/search/?api=1&query=${coords}&query_place_id=${encodedName}`,
+                    apple: `http://maps.apple.com/?q=${encodedName}&ll=${coords}`,
+                    waze: `https://waze.com/ul?ll=${coords}&navigate=yes&zoom=17`
+                };
+            }
+
+            copyCoordinates(stop) {
+                const coords = `${stop.lat}, ${stop.lng}`;
+                
+                if (navigator.clipboard) {
+                    navigator.clipboard.writeText(coords).then(() => {
+                        alert(`📋 Coordinates copied to clipboard!\n\n${stop.name}\n${coords}\n\nYou can paste this into any map app.`);
+                    }).catch(() => {
+                        this.showCoordinatesManually(stop, coords);
+                    });
+                } else {
+                    this.showCoordinatesManually(stop, coords);
+                }
+            }
+
+            showCoordinatesManually(stop, coords) {
+                const message = `📍 ${stop.name}\n\nCoordinates: ${coords}\n\n` +
+                               `Copy these coordinates and paste them into your preferred map app:\n\n` +
+                               `• Google Maps: Search for "${coords}"\n` +
+                               `• Apple Maps: Search for "${coords}"\n` +
+                               `• Any GPS app: Enter these coordinates`;
+                
+                alert(message);
+            }
+
+            updateMarkerIcons() {
+                // Update all stop markers based on current progress
+                this.stopMarkers.forEach((marker, index) => {
+                    let iconUrl;
+                    if (index < this.currentStopIndex) {
+                        // Completed stops - use blue pin
+                        iconUrl = 'images/ZohranPin-Blue.png';
+                    } else if (index === this.currentStopIndex) {
+                        // Current stop - use yellow pin
+                        iconUrl = 'images/ZohranPin-Yellow.png';
+                    } else {
+                        // Future stops - use blue pin
+                        iconUrl = 'images/ZohranPin-Blue.png';
+                    }
+                    
+                    marker.setIcon({
+                        url: iconUrl,
+                        scaledSize: new google.maps.Size(40, 40),
+                        anchor: new google.maps.Point(20, 40)
+                    });
+                });
+            }
+
+            findNearestStop(position = null) {
+                // Use provided position or default to current user position
+                const referencePosition = position || this.currentPosition;
+                if (!referencePosition) return { index: 0, stop: ROUTE_CONFIG.route[0] };
+                
+                let nearestIndex = 0;
+                let nearestDistance = Infinity;
+                
+                ROUTE_CONFIG.route.forEach((stop, index) => {
+                    const distance = this.calculateDistance(referencePosition, stop);
+                    if (distance < nearestDistance) {
+                        nearestDistance = distance;
+                        nearestIndex = index;
+                    }
+                });
+                
+                return { index: nearestIndex, stop: ROUTE_CONFIG.route[nearestIndex] };
+            }
+
+            calculateDistance(pos1, pos2) {
+                const R = 6371; // Earth's radius in km
+                const dLat = (pos2.lat - pos1.lat) * Math.PI / 180;
+                const dLng = (pos2.lng - pos1.lng) * Math.PI / 180;
+                const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                         Math.cos(pos1.lat * Math.PI / 180) * Math.cos(pos2.lat * Math.PI / 180) *
+                         Math.sin(dLng/2) * Math.sin(dLng/2);
+                return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            }
+
+            calculateETA(distance) {
+                const walkingSpeed = 5; // km/h
+                const minutes = (distance / walkingSpeed) * 60;
+                
+                if (minutes < 1) return 'Arriving now';
+                if (minutes < 60) return `${Math.round(minutes)} min`;
+                return `${Math.round(minutes / 60)}h ${Math.round(minutes % 60)}m`;
+            }
+
+            centerOnPositions() {
+                if (!this.map) return;
+
+                const bounds = new google.maps.LatLngBounds();
+                let hasPositions = false;
+
+                // Add user position to bounds
+                if (this.currentPosition) {
+                    bounds.extend(new google.maps.LatLng(this.currentPosition.lat, this.currentPosition.lng));
+                    hasPositions = true;
+                }
+
+                // Add leader position to bounds
+                if (this.leaderPosition) {
+                    bounds.extend(new google.maps.LatLng(this.leaderPosition.lat, this.leaderPosition.lng));
+                    hasPositions = true;
+                }
+
+                if (hasPositions) {
+                    // Fit the map to show both positions
+                    this.map.fitBounds(bounds, {
+                        padding: 100, // Add padding around the bounds
+                        maxZoom: 16   // Don't zoom in too much
+                    });
+                    console.log('Map centered on user and leader positions');
+                } else {
+                    // Fallback: center on the route if no positions available
+                    const routeCenter = ROUTE_CONFIG.route[Math.floor(ROUTE_CONFIG.route.length / 2)];
+                    this.map.setCenter(routeCenter);
+                    this.map.setZoom(13);
+                    console.log('Map centered on route (no positions available)');
+                }
+            }
+
+            // Leader Mode Methods
+            promptForLeaderAccess() {
+                const enteredPassword = prompt("Enter leader password:");
+                if (enteredPassword === null) return; // User cancelled
+                
+                // Check which leader type this password corresponds to
+                for (const [leaderType, config] of Object.entries(this.leaderTypes)) {
+                    if (enteredPassword === config.password) {
+                        this.activateLeaderMode(leaderType);
+                        return;
+                    }
+                }
+                
+                // If we get here, password was incorrect
+                alert("❌ Incorrect password. Access denied.");
+            }
+
+            activateLeaderMode(leaderType) {
+                console.log(`🔄 ACTIVATING LEADER MODE - ${leaderType.toUpperCase()}`);
+                this.isLeaderMode = true;
+                this.currentLeaderType = leaderType;
+                const leaderConfig = this.leaderTypes[leaderType];
+                console.log('✅ isLeaderMode set to:', this.isLeaderMode, 'Type:', leaderType);
+                
+                const toggleButton = document.getElementById('leader-toggle');
+                const leaderPanel = document.getElementById('leader-panel');
+                
+                toggleButton.textContent = `👑 Leading as ${leaderConfig.name}`;
+                toggleButton.classList.add('active');
+                leaderPanel.style.display = 'block';
+                
+                // Clean up simulated leader tracking
+                this.cleanupLeaderMarker();
+                
+                // STOP user GPS tracking to prevent interference
+                if (this.watchId) {
+                    navigator.geolocation.clearWatch(this.watchId);
+                    this.watchId = null;
+                    console.log('🛑 Stopped user GPS tracking');
+                }
+                
+                // Remove the user's blue marker completely since they are now the leader
+                console.log('🔍 Removing blue marker - currentLocationMarker exists:', !!this.currentLocationMarker);
+                if (this.currentLocationMarker) {
+                    this.currentLocationMarker.setMap(null);
+                    this.currentLocationMarker = null; // Set to null so it's not recreated
+                    console.log('🔵 Blue marker removed and set to null');
+                }
+                
+                // Announce leader status to Firebase
+                this.announceLeaderStatus();
+                
+                // Stop polling for leader updates since we ARE the leader now
+                this.stopFollowerPolling();
+                
+                // Start new GPS tracking specifically for leader mode
+                this.startLeaderGPSTracking();
+                
+                // Populate the stop selector dropdown
+                this.populateStopSelector();
+                
+                console.log('✅ Leader mode activated - Broadcasting position to all followers');
+                this.updateCurrentStatus();
+            }
+
+            announceLeaderStatus() {
+                console.log('� Announcing leader status to localStorage');
+                
+                // Set leader status in localStorage
+                const leaderStatus = {
+                    hasLeader: true,
+                    leaderName: 'Zohran Mamdani',
+                    leaderSession: this.sessionId,
+                    activatedAt: Date.now()
+                };
+                
+                localStorage.setItem('victoryWalkStatus', JSON.stringify(leaderStatus));
+                console.log('📡 Leader status stored locally');
+            }
+
+            async broadcastLeaderPosition(position) {
+                if (!this.isLeaderMode) return;
+                
+                const now = Date.now();
+                const newLat = position.coords.latitude;
+                const newLng = position.coords.longitude;
+                
+                // Check if enough time has passed
+                const timePassed = now - this.lastBroadcastTime >= this.broadcastThrottle;
+                
+                // Check if leader has moved significantly
+                let distanceMoved = 0;
+                if (this.lastBroadcastPosition) {
+                    distanceMoved = this.calculateDistance(
+                        this.lastBroadcastPosition,
+                        { lat: newLat, lng: newLng }
+                    ); // Distance in km
+                }
+                
+                // Only broadcast if enough time passed AND leader moved significantly (or first broadcast)
+                if (!timePassed && this.lastBroadcastPosition && distanceMoved < this.minDistanceThreshold) {
+                    console.log(`⏱️ Skipping broadcast - insufficient movement (${(distanceMoved * 1000).toFixed(1)}m)`);
+                    return;
+                }
+                
+                this.lastBroadcastTime = now;
+                this.lastBroadcastPosition = { lat: newLat, lng: newLng };
+                
+                const leaderPosition = {
+                    lat: newLat,
+                    lng: newLng,
+                    accuracy: position.coords.accuracy || 0,
+                    timestamp: Date.now(),
+                    session: this.sessionId,
+                    leaderType: this.currentLeaderType
+                };
+                
+                const leaderData = {
+                    hasLeader: true,
+                    leaders: {
+                        [this.currentLeaderType]: {
+                            position: leaderPosition,
+                            stopIndex: this.currentStopIndex,
+                            lastUpdate: Date.now()
+                        }
+                    },
+                    // Keep legacy fields for backward compatibility during transition
+                    leaderPosition: leaderPosition,
+                    currentStopIndex: this.currentStopIndex,
+                    leaderStopIndex: this.leaderStopIndex,
+                    lastUpdate: Date.now()
+                };
+                
+                try {
+                    // Send to server via HTTP POST
+                    const response = await fetch('/api/leader', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(leaderData)
+                    });
+                    
+                    if (response.ok) {
+                        console.log(`📡 Leader position broadcasted (moved ${(distanceMoved * 1000).toFixed(1)}m):`, leaderPosition);
+                    } else {
+                        console.warn('Failed to broadcast leader position:', response.status);
+                    }
+                } catch (error) {
+                    console.warn('Error broadcasting leader position:', error);
+                }
+                
+                // Also store in localStorage as backup for same-device windows
+                localStorage.setItem('victoryWalkLeader', JSON.stringify(leaderPosition));
+            }
+
+            async syncLeaderPositionToFollowers(position) {
+                if (!this.isLeaderMode) return;
+                
+                const leaderPosition = {
+                    lat: position.lat,
+                    lng: position.lng,
+                    accuracy: position.accuracy || 0,
+                    timestamp: Date.now(),
+                    session: this.sessionId,
+                    leaderType: this.currentLeaderType
+                };
+                
+                const leaderData = {
+                    hasLeader: true,
+                    leaders: {
+                        [this.currentLeaderType]: {
+                            position: leaderPosition,
+                            stopIndex: this.currentStopIndex,
+                            lastUpdate: Date.now()
+                        }
+                    },
+                    // Keep legacy fields for backward compatibility during transition
+                    leaderPosition: leaderPosition,
+                    currentStopIndex: this.currentStopIndex,
+                    leaderStopIndex: this.leaderStopIndex,
+                    lastUpdate: Date.now()
+                };
+                
+                try {
+                    // Send to server via HTTP POST
+                    const response = await fetch('/api/leader', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(leaderData)
+                    });
+                    
+                    if (response.ok) {
+                        console.log('📡 Leader position and stop index synced to followers:', leaderPosition, 'Stop:', this.currentStopIndex);
+                    } else {
+                        console.warn('Failed to sync leader position:', response.status);
+                    }
+                } catch (error) {
+                    console.warn('Error syncing leader position:', error);
+                }
+                
+                // Also store in localStorage as backup for same-device windows
+                localStorage.setItem('victoryWalkLeader', JSON.stringify(leaderPosition));
+            }
+
+            startLeaderGPSTracking() {
+                console.log('🟡 Starting dedicated leader GPS tracking');
+                
+                const options = {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 1000
+                };
+
+                // First get an immediate position for the leader marker
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        console.log('🟡 Got initial leader GPS position:', position);
+                        console.log('🟡 Coordinates:', position.coords.latitude, position.coords.longitude);
+                        
+                        // Create leader position directly without calling updateLeaderPositionFromGPS
+                        this.leaderPosition = {
+                            lat: position.coords.latitude,
+                            lng: position.coords.longitude,
+                            accuracy: position.coords.accuracy
+                        };
+                        
+                        // Create leader marker with appropriate color and icon
+                        const leaderConfig = this.leaderTypes[this.currentLeaderType];
+                        this.leaderLocationMarker = new google.maps.Marker({
+                            position: this.leaderPosition,
+                            map: this.map,
+                            icon: {
+                                url: `data:image/svg+xml,${encodeURIComponent(`
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28">
+                                        <circle cx="14" cy="14" r="12" fill="${leaderConfig.color}" stroke="white" stroke-width="3"/>
+                                        <circle cx="14" cy="14" r="6" fill="white"/>
+                                        <text x="14" y="18" text-anchor="middle" fill="#1e3a8a" font-family="Arial" font-size="8" font-weight="bold">${leaderConfig.icon}</text>
+                                    </svg>
+                                `)}`,
+                                scaledSize: new google.maps.Size(28, 28),
+                                anchor: new google.maps.Point(14, 14)
+                            },
+                            title: `${leaderConfig.name} - Victory Walk Leader`,
+                            zIndex: 999
+                        });
+                        
+                        console.log('🟡 Yellow leader marker created successfully');
+                        
+                        // Update debug info
+                        const leaderLoc = `${this.leaderPosition.lat.toFixed(6)}, ${this.leaderPosition.lng.toFixed(6)}`;
+                        document.getElementById('debug-leader-location').textContent = leaderLoc;
+                    },
+                    (error) => {
+                        console.warn('❌ Could not get initial leader GPS position:', error);
+                    },
+                    options
+                );
+
+                // Start continuous tracking for leader
+                this.leaderWatchId = navigator.geolocation.watchPosition(
+                    (position) => {
+                        console.log('🟡 Leader GPS update:', position.coords.latitude, position.coords.longitude);
+                        
+                        // Update position data
+                        this.currentPosition = {
+                            lat: position.coords.latitude,
+                            lng: position.coords.longitude,
+                            accuracy: position.coords.accuracy
+                        };
+                        
+                        this.leaderPosition = {
+                            lat: position.coords.latitude,
+                            lng: position.coords.longitude,
+                            accuracy: position.coords.accuracy
+                        };
+                        
+                        // Update marker position directly
+                        if (this.leaderLocationMarker) {
+                            this.leaderLocationMarker.setPosition(this.leaderPosition);
+                        }
+                        
+                        // 🔥 BROADCAST LEADER POSITION TO ALL FOLLOWERS
+                        this.broadcastLeaderPosition(position);
+                        
+                        // Update debug info
+                        this.updateDebugInfo(position);
+                        const leaderLoc = `${this.leaderPosition.lat.toFixed(6)}, ${this.leaderPosition.lng.toFixed(6)}`;
+                        document.getElementById('debug-leader-location').textContent = leaderLoc;
+                        
+                        this.updateCurrentStatus();
+                        this.updateRouteProgress();
+                    },
+                    (error) => {
+                        console.warn('❌ Leader GPS tracking error:', error);
+                    },
+                    options
+                );
+                
+                console.log('✅ Leader GPS tracking started with watch ID:', this.leaderWatchId);
+            }
+
+            logoutLeader() {
+                console.log(`🔄 LOGGING OUT FROM LEADER MODE - ${this.currentLeaderType}`);
+                
+                // Remove this leader from server data
+                this.removeLeaderFromServer();
+                
+                this.isLeaderMode = false;
+                const toggleButton = document.getElementById('leader-toggle');
+                const leaderPanel = document.getElementById('leader-panel');
+                
+                toggleButton.textContent = '👑 Walk Leader Access';
+                toggleButton.classList.remove('active');
+                leaderPanel.style.display = 'none';
+                
+                // Stop leader GPS tracking
+                if (this.leaderWatchId) {
+                    navigator.geolocation.clearWatch(this.leaderWatchId);
+                    this.leaderWatchId = null;
+                    console.log('🔄 Stopped leader GPS tracking');
+                }
+                
+                // Clear leader properties
+                this.currentLeaderType = null;
+                
+                // � CLEAR LOCAL STORAGE LEADER DATA
+                localStorage.removeItem('victoryWalkLeader');
+                localStorage.setItem('victoryWalkStatus', JSON.stringify({
+                    hasLeader: false,
+                    leaderName: null,
+                    deactivatedAt: Date.now()
+                }));
+                console.log('� Leader data cleared from localStorage');
+                
+                // Resume simulated leader tracking
+                this.startLeaderTracking();
+                
+                // Restart regular user GPS tracking
+                this.startLocationTracking();
+                
+                // Restart follower polling since we're no longer the leader
+                this.startFollowerPolling();
+                
+                console.log('✅ Leader mode deactivated - Returned to follower mode with blue marker');
+                this.updateCurrentStatus();
+            }
+
+            toggleDebugPanel() {
+                const debugContent = document.getElementById('debug-content');
+                debugContent.style.display = debugContent.style.display === 'none' ? 'block' : 'none';
+            }
+
+            populateStopSelector() {
+                if (!this.isLeaderMode) return;
+                
+                const stopSelect = document.getElementById('stop-select');
+                if (!stopSelect) return;
+                
+                // Clear existing options
+                stopSelect.innerHTML = '';
+                
+                // Add option for each stop
+                ROUTE_CONFIG.route.forEach((stop, index) => {
+                    const option = document.createElement('option');
+                    option.value = index;
+                    option.textContent = `${index + 1}. ${stop.name}`;
+                    
+                    // Disable current stop
+                    if (index === this.currentStopIndex) {
+                        option.textContent += ' (Current)';
+                        option.disabled = true;
+                    }
+                    
+                    stopSelect.appendChild(option);
+                });
+                
+                // Select next stop by default if available
+                if (this.currentStopIndex < ROUTE_CONFIG.route.length - 1) {
+                    stopSelect.value = this.currentStopIndex + 1;
+                }
+            }
+
+            advanceToSelectedStop() {
+                if (!this.isLeaderMode) return;
+                
+                const stopSelect = document.getElementById('stop-select');
+                const selectedIndex = parseInt(stopSelect.value);
+                
+                if (isNaN(selectedIndex) || selectedIndex < 0 || selectedIndex >= ROUTE_CONFIG.route.length) {
+                    alert('Please select a valid stop');
+                    return;
+                }
+                
+                if (selectedIndex === this.currentStopIndex) {
+                    alert('You are already at this stop');
+                    return;
+                }
+                
+                // Update to selected stop
+                this.leaderStopIndex = selectedIndex;
+                this.currentStopIndex = selectedIndex;
+                
+                const selectedStop = ROUTE_CONFIG.route[selectedIndex];
+                document.getElementById('leader-current-stop').textContent = selectedStop.name;
+                
+                // Update leader position to selected stop
+                this.leaderPosition = {
+                    lat: selectedStop.lat,
+                    lng: selectedStop.lng
+                };
+                
+                // Update leader marker position if it exists
+                if (this.leaderLocationMarker) {
+                    this.leaderLocationMarker.setPosition(this.leaderPosition);
+                }
+                
+                // Sync leader position to server for other users
+                this.syncLeaderPositionToFollowers(this.leaderPosition);
+                
+                // Update marker colors to reflect new current stop
+                this.updateMarkerIcons();
+                
+                // Update progress displays
+                this.updateRouteProgress();
+                this.updateCurrentStatus();
+                
+                // Refresh the dropdown to reflect new current stop
+                this.populateStopSelector();
+                
+                console.log(`Leader manually moved to: ${selectedStop.name}`);
+                
+                // Center map on new stop
+                this.map.panTo(selectedStop);
+                
+                // Show confirmation
+                alert(`🚶‍♂️ Moved to: ${selectedStop.name}`);
+            }
+
+            // Legacy method for compatibility - now just advances to next stop
+            advanceToNextStop() {
+                if (!this.isLeaderMode) return;
+                
+                if (this.currentStopIndex < ROUTE_CONFIG.route.length - 1) {
+                    const stopSelect = document.getElementById('stop-select');
+                    if (stopSelect) {
+                        stopSelect.value = this.currentStopIndex + 1;
+                        this.advanceToSelectedStop();
+                    }
+                } else {
+                    alert('🎉 Victory Walk completed! You\'ve reached the final destination.');
+                }
+            }
+
+            announceCurrentStop() {
+                if (!this.isLeaderMode) return;
+                
+                const currentStop = ROUTE_CONFIG.route[this.leaderStopIndex];
+                alert(`📢 We are now at: ${currentStop.name}\n\n${currentStop.description}`);
+            }
+
+            updateUI() {
+                this.updateNextStopInfo();
+                this.updateStopsList();
+            }
+
+            handleLocationError(error) {
+                let message = 'Location error: ';
+                switch(error.code) {
+                    case error.PERMISSION_DENIED:
+                        message += 'Permission denied';
+                        break;
+                    case error.POSITION_UNAVAILABLE:
+                        message += 'Position unavailable';
+                        break;
+                    case error.TIMEOUT:
+                        message += 'Request timeout';
+                        break;
+                }
+                this.showError(message);
+            }
+
+            showError(message) {
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'error';
+                errorDiv.textContent = message;
+                document.body.insertBefore(errorDiv, document.querySelector('.bottom-spacer'));
+                
+                setTimeout(() => errorDiv.remove(), 5000);
+            }
+        }
+
+        // Initialize the tracker when page loads
+        let tracker;
+        document.addEventListener('DOMContentLoaded', () => {
+            const loadTime = new Date().toISOString();
+            console.log('🚀 Victory Walk App Loading - Timestamp:', loadTime);
+            
+            // Add load timestamp to page for cache verification
+            const versionInfo = document.createElement('div');
+            versionInfo.id = 'version-info';
+            versionInfo.style.cssText = 'position:fixed;top:5px;right:5px;font-size:10px;color:#666;z-index:10000;background:rgba(255,255,255,0.8);padding:2px 5px;border-radius:3px;';
+            versionInfo.textContent = `v${loadTime.substr(11,8)}`;
+            document.body.appendChild(versionInfo);
+            
+            tracker = new ZohranRouteTracker();
+        });
+
+        // Global functions for testing controls
+        function toggleTestingControls() {
+            if (tracker) {
+                tracker.toggleTestingControls();
+            }
+        }
+
+        function setTestingRole(role) {
+            if (tracker) {
+                tracker.setTestingRole(role);
+            }
+        }
+
+        function simulateMovement(direction) {
+            if (tracker) {
+                tracker.simulateMovement(direction);
+            }
+        }
+
+        function centerOnPositions() {
+            if (tracker) {
+                tracker.centerOnPositions();
+            }
+        }
+
+        function promptForLeaderAccess() {
+            if (tracker) {
+                tracker.promptForLeaderAccess();
+            }
+        }
+
+        function logoutLeader() {
+            if (tracker) {
+                tracker.logoutLeader();
+            }
+        }
+
+        function toggleDebugPanel() {
+            if (tracker) {
+                tracker.toggleDebugPanel();
+            }
+        }
+
+        function advanceToNextStop() {
+            if (tracker) {
+                tracker.advanceToNextStop();
+            }
+        }
+
+        function advanceToSelectedStop() {
+            if (tracker) {
+                tracker.advanceToSelectedStop();
+            }
+        }
+
+        function announceCurrentStop() {
+            if (tracker) {
+                tracker.announceCurrentStop();
+            }
+        }
+
+        // Service worker for PWA capabilities
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js')
+                    .then(() => console.log('SW registered'))
+                    .catch(() => console.log('SW registration failed'));
+            });
+        }
+    </script>
+</body>
+</html>

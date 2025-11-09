@@ -1,0 +1,28 @@
+{
+  "name": "victory-walk-tracker",
+  "version": "1.0.0",
+  "description": "Victory Walk Route Tracker - Mobile GIS web app for tracking predetermined walking routes with live location tracking",
+  "main": "index.html",
+  "scripts": {
+    "dev": "vercel dev",
+    "build": "echo 'No build step needed for static files'",
+    "deploy": "vercel --prod"
+  },
+  "keywords": [
+    "gis",
+    "tracking",
+    "maps",
+    "walking",
+    "route",
+    "mobile",
+    "pwa"
+  ],
+  "author": "Victory Walk Team",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "devDependencies": {
+    "vercel": "^32.0.0"
+  }
+}
