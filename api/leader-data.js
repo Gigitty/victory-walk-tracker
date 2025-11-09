@@ -1,20 +1,6 @@
 // Vercel Serverless Function for Leader Data Retrieval
-// Simple in-memory storage with timestamp validation
-
-// Global in-memory storage that persists for the function lifetime
-if (!global.leaderDataCache) {
-  global.leaderDataCache = {
-    data: {
-      hasLeader: false,
-      leaders: {},
-      leaderPosition: null,
-      currentStopIndex: 0,
-      leaderStopIndex: 0,
-      lastUpdate: 0
-    },
-    timestamp: 0
-  };
-}
+// Simple in-memory storage using Map (proven to work)
+const leaderStore = new Map();
 
 export default async function handler(req, res) {
   console.log('📡 leader-data API called');
@@ -35,37 +21,36 @@ export default async function handler(req, res) {
 
   if (req.method === 'GET') {
     try {
-      // Get current data from global cache
-      const currentData = global.leaderDataCache.data;
-      const cacheAge = Date.now() - global.leaderDataCache.timestamp;
-
-      console.log('🔍 DEBUG - Global cache state:', {
-        cacheExists: !!global.leaderDataCache,
-        cacheData: JSON.stringify(global.leaderDataCache, null, 2),
-        hasLeader: currentData?.hasLeader,
-        leadersCount: Object.keys(currentData?.leaders || {}).length,
-        rawCurrentData: currentData
+      // Get data from the same Map the leader uses
+      const currentData = leaderStore.get('currentLeaderData');
+      
+      console.log('🔍 DEBUG - Map state:', {
+        mapSize: leaderStore.size,
+        hasCurrentData: leaderStore.has('currentLeaderData'),
+        rawData: currentData
       });
 
-      // Add cache busting timestamp
-      const responseData = {
+      // Prepare response
+      const responseData = currentData ? {
         ...currentData,
         timestamp: Date.now(),
-        serverTime: new Date().toISOString(),
-        cacheAge: cacheAge,
-        debug: {
-          globalCacheExists: !!global.leaderDataCache,
-          cacheTimestamp: global.leaderDataCache.timestamp,
-          functionId: process.env.VERCEL_REGION || 'unknown'
-        }
+        serverTime: new Date().toISOString()
+      } : {
+        hasLeader: false,
+        leaders: {},
+        leaderPosition: null,
+        currentStopIndex: 0,
+        leaderStopIndex: 0,
+        lastUpdate: Date.now(),
+        timestamp: Date.now(),
+        serverTime: new Date().toISOString()
       };
 
-      console.log('📡 Serving leader data from cache:', {
+      console.log('📡 Serving leader data:', {
         hasLeader: responseData.hasLeader,
         leadersCount: Object.keys(responseData.leaders || {}).length,
         lastUpdate: responseData.lastUpdate,
-        cacheAge: cacheAge,
-        functionId: responseData.debug.functionId
+        mapSize: leaderStore.size
       });
 
       return res.status(200).json(responseData);

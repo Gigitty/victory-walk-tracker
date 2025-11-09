@@ -1,20 +1,6 @@
 // Vercel Serverless Function for Leader Position Updates
-// Simple in-memory storage with timestamp validation
-
-// Global in-memory storage that persists for the function lifetime
-if (!global.leaderDataCache) {
-  global.leaderDataCache = {
-    data: {
-      hasLeader: false,
-      leaders: {},
-      leaderPosition: null,
-      currentStopIndex: 0,
-      leaderStopIndex: 0,
-      lastUpdate: 0
-    },
-    timestamp: 0
-  };
-}
+// Simple in-memory storage using Map (proven to work)
+const leaderStore = new Map();
 
 export default async function handler(req, res) {
   console.log('📡 leader API called');
@@ -39,70 +25,30 @@ export default async function handler(req, res) {
         hasMultipleLeaders: !!leaderData.leaders
       });
 
-      // Get existing data from global cache
-      const existingData = global.leaderDataCache.data;
-      
-      console.log('📦 Existing data before merge:', {
-        hasLeader: existingData.hasLeader,
-        leadersCount: Object.keys(existingData.leaders || {}).length,
-        lastUpdate: existingData.lastUpdate
-      });
-      
-      // Merge with existing data
-      const updatedData = {
-        ...existingData,
+      // Store the entire leader data object
+      leaderStore.set('currentLeaderData', {
         ...leaderData,
-        lastServerUpdate: Date.now()
-      };
-
-      // Merge multiple leaders if present
-      if (leaderData.leaders) {
-        if (!updatedData.leaders) {
-          updatedData.leaders = {};
-        }
-        
-        // Merge the new leader data
-        for (const [leaderType, leaderInfo] of Object.entries(leaderData.leaders)) {
-          updatedData.leaders[leaderType] = leaderInfo;
-          console.log(`💾 Storing leader ${leaderType}:`, leaderInfo);
-        }
-        
-        updatedData.hasLeader = true;
-        updatedData.lastUpdate = leaderData.lastUpdate || Date.now();
-      }
-
-      // Update global cache
-      global.leaderDataCache = {
-        data: updatedData,
-        timestamp: Date.now()
-      };
-      
-      console.log('✅ Updated global cache:', {
-        hasLeader: updatedData.hasLeader,
-        leadersCount: Object.keys(updatedData.leaders || {}).length,
-        lastUpdate: updatedData.lastUpdate,
-        cacheTimestamp: global.leaderDataCache.timestamp,
-        functionId: process.env.VERCEL_REGION || 'unknown'
+        lastServerUpdate: Date.now(),
+        storeTimestamp: Date.now()
       });
-
-      // Test: Try to read back immediately to verify storage
-      const testRead = global.leaderDataCache.data;
-      console.log('🧪 Immediate read test:', {
-        hasLeader: testRead.hasLeader,
-        leadersCount: Object.keys(testRead.leaders || {}).length
+      
+      const stored = leaderStore.get('currentLeaderData');
+      
+      console.log('✅ Stored leader data:', {
+        hasLeader: stored.hasLeader,
+        leadersCount: Object.keys(stored.leaders || {}).length,
+        lastUpdate: stored.lastUpdate,
+        mapSize: leaderStore.size
       });
 
       return res.status(200).json({ 
         success: true, 
         message: 'Leader position updated',
-        activeLeaders: updatedData.leaders ? Object.keys(updatedData.leaders).length : 0,
-        cacheUpdated: true,
-        debug: {
-          functionId: process.env.VERCEL_REGION || 'unknown',
-          immediateReadTest: {
-            hasLeader: testRead.hasLeader,
-            leadersCount: Object.keys(testRead.leaders || {}).length
-          }
+        activeLeaders: stored.leaders ? Object.keys(stored.leaders).length : 0,
+        mapSize: leaderStore.size,
+        stored: {
+          hasLeader: stored.hasLeader,
+          leadersCount: Object.keys(stored.leaders || {}).length
         }
       });
 
