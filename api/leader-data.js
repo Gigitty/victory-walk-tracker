@@ -6,13 +6,27 @@ import { promises as fs } from 'fs';
 // Use /tmp directory for temporary data storage in Vercel
 const DATA_FILE = '/tmp/leader-data.json';
 
+// In-memory backup for immediate consistency
+let memoryBackup = null;
+
 async function readLeaderData() {
   try {
+    // Try memory backup first
+    if (memoryBackup && Date.now() - memoryBackup.memoryTimestamp < 30000) { // 30 second cache
+      console.log('📦 Using memory backup data');
+      return memoryBackup;
+    }
+    
+    // Try file system
     const data = await fs.readFile(DATA_FILE, 'utf8');
-    return JSON.parse(data);
+    const parsed = JSON.parse(data);
+    memoryBackup = { ...parsed, memoryTimestamp: Date.now() };
+    console.log('📁 Read data from file system');
+    return parsed;
   } catch (error) {
+    console.log('⚠️ File read failed, using default data:', error.message);
     // File doesn't exist or is invalid, return default
-    return {
+    const defaultData = {
       hasLeader: false,
       leaders: {},
       leaderPosition: null,
@@ -20,6 +34,8 @@ async function readLeaderData() {
       leaderStopIndex: 0,
       lastUpdate: Date.now()
     };
+    memoryBackup = { ...defaultData, memoryTimestamp: Date.now() };
+    return defaultData;
   }
 }
 
@@ -53,20 +69,27 @@ export default async function handler(req, res) {
       console.log('📡 Serving leader data:', {
         hasLeader: responseData.hasLeader,
         leadersCount: Object.keys(responseData.leaders || {}).length,
-        lastUpdate: responseData.lastUpdate
+        lastUpdate: responseData.lastUpdate,
+        fileExists: true
       });
 
       return res.status(200).json(responseData);
 
     } catch (error) {
       console.error('❌ Error retrieving leader data:', error);
-      return res.status(500).json({ 
+      
+      // Return a safe fallback response
+      const fallbackData = {
         error: 'Internal server error', 
         message: error.message,
         hasLeader: false,
         leaders: {},
-        lastUpdate: Date.now()
-      });
+        lastUpdate: Date.now(),
+        timestamp: Date.now(),
+        serverTime: new Date().toISOString()
+      };
+      
+      return res.status(200).json(fallbackData); // Return 200 instead of 500 to avoid client errors
     }
   }
 

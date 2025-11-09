@@ -7,13 +7,27 @@ import path from 'path';
 // Use /tmp directory for temporary data storage in Vercel
 const DATA_FILE = '/tmp/leader-data.json';
 
+// In-memory backup for immediate consistency
+let memoryBackup = null;
+
 async function readLeaderData() {
   try {
+    // Try memory backup first
+    if (memoryBackup && Date.now() - memoryBackup.memoryTimestamp < 30000) { // 30 second cache
+      console.log('📦 Using memory backup data');
+      return memoryBackup;
+    }
+    
+    // Try file system
     const data = await fs.readFile(DATA_FILE, 'utf8');
-    return JSON.parse(data);
+    const parsed = JSON.parse(data);
+    memoryBackup = { ...parsed, memoryTimestamp: Date.now() };
+    console.log('📁 Read data from file system');
+    return parsed;
   } catch (error) {
+    console.log('⚠️ File read failed, using default data:', error.message);
     // File doesn't exist or is invalid, return default
-    return {
+    const defaultData = {
       hasLeader: false,
       leaders: {},
       leaderPosition: null,
@@ -21,16 +35,24 @@ async function readLeaderData() {
       leaderStopIndex: 0,
       lastUpdate: Date.now()
     };
+    memoryBackup = { ...defaultData, memoryTimestamp: Date.now() };
+    return defaultData;
   }
 }
 
 async function writeLeaderData(data) {
   try {
+    // Update memory backup immediately
+    memoryBackup = { ...data, memoryTimestamp: Date.now() };
+    
+    // Try to write to file system
     await fs.writeFile(DATA_FILE, JSON.stringify(data, null, 2));
+    console.log('💾 Data written to file system and memory');
     return true;
   } catch (error) {
-    console.error('Failed to write leader data:', error);
-    return false;
+    console.error('❌ Failed to write to file system, keeping memory backup:', error.message);
+    // Keep memory backup even if file write fails
+    return true; // Return true because we have memory backup
   }
 }
 

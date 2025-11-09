@@ -1055,6 +1055,14 @@
                     
                     const leaderData = await response.json();
                     
+                    console.log('🔍 Follower polling result:', {
+                        hasLeader: leaderData.hasLeader,
+                        leadersCount: Object.keys(leaderData.leaders || {}).length,
+                        lastUpdate: leaderData.lastUpdate,
+                        serverTime: leaderData.serverTime,
+                        leaders: leaderData.leaders
+                    });
+                    
                     if (leaderData.hasLeader) {
                         // Check for new multi-leader structure
                         if (leaderData.leaders) {
@@ -1063,6 +1071,8 @@
                                 console.log('📡 Follower received newer multi-leader data:', leaderData.leaders);
                                 this.updateMultipleLeaders(leaderData);
                                 this.lastLeaderUpdate = leaderData.lastUpdate;
+                            } else {
+                                console.log('📡 Follower data is not newer - skipping update');
                             }
                         } else if (leaderData.leaderPosition) {
                             // Legacy single leader support
